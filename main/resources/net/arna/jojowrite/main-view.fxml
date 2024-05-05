@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.TextArea?>
+
+<?import javafx.scene.layout.BorderPane?>
+
+<?import javafx.scene.control.Label?>
+
+<?import javafx.scene.control.MenuBar?>
+<?import javafx.scene.control.Menu?>
+<?import javafx.scene.control.MenuItem?>
+
+<?import javafx.scene.layout.HBox?>
+<BorderPane xmlns="http://javafx.com/javafx/8.0.111" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="net.arna.jojowrite.JoJoWriteController" styleClass="main">
+    <top>
+        <MenuBar BorderPane.alignment="TOP_LEFT">
+            <Menu text="ROM">
+                <MenuItem text="Select" onAction="#selectROM"/>
+            </Menu>
+            <Menu text="Overwrite">
+                <MenuItem text="New" onAction="#newOverwrite"/>
+                <MenuItem text="Open" onAction="#openOverwrite"/>
+                <MenuItem text="Select" onAction="#selectOverwrite"/>
+                <MenuItem text="Save" onAction="#saveOverwrite"/>
+                <MenuItem text="SaveAs" onAction="#selectAndsaveOverwrite"/>
+            </Menu>
+            <Menu text="Assembly">
+                <MenuItem text="New" onAction="#newAssembly"/>
+                <MenuItem text="Open" onAction="#openAssembly"/>
+                <MenuItem text="Select" onAction="#selectAssembly"/>
+                <MenuItem text="Save" onAction="#saveAssembly"/>
+                <MenuItem text="SaveAs" onAction="#selectAndSaveAssembly"/>
+            </Menu>
+            <Menu text="Patch">
+                <MenuItem text="New"/>
+                <MenuItem text="Select" onAction="#selectPatch"/>
+                <MenuItem text="Save" onAction="#trySavePatch"/>
+                <MenuItem text="Save As" onAction="#selectAndSavePatch"/>
+                <MenuItem text="Apply" onAction="#patchROM"/>
+            </Menu>
+            <Menu text="Help">
+
+            </Menu>
+        </MenuBar>
+    </top>
+    <bottom>
+        <Label fx:id="selectedFileDisplay"/>
+    </bottom>
+    <left>
+        <Label fx:id="lineCounter" styleClass="line-counter">
+            00000000
+        </Label>
+    </left>
+    <center>
+        <TextArea fx:id="input" promptText="Enter text here..." minWidth="320" styleClass="text-field-full-height" />
+    </center>
+    <right>
+        <TextArea fx:id="output" editable="false" promptText="Output goes here..." styleClass="text-field-full-height" />
+    </right>
+</BorderPane>
