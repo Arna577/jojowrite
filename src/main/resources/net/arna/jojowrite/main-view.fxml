@@ -1,16 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import javafx.scene.control.TextArea?>
-
+<?import javafx.scene.control.*?>
 <?import javafx.scene.layout.BorderPane?>
+<?import org.fxmisc.flowless.VirtualizedScrollPane?>
+<?import org.fxmisc.richtext.CodeArea?>
+<?import org.fxmisc.richtext.StyleClassedTextArea?>
 
-<?import javafx.scene.control.Label?>
-
-<?import javafx.scene.control.MenuBar?>
-<?import javafx.scene.control.Menu?>
-<?import javafx.scene.control.MenuItem?>
-
-<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.layout.StackPane?>
 <BorderPane xmlns="http://javafx.com/javafx/8.0.111" xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="net.arna.jojowrite.JoJoWriteController" styleClass="main">
     <top>
@@ -19,11 +16,11 @@
                 <MenuItem text="Select" onAction="#selectROM"/>
             </Menu>
             <Menu text="Overwrite">
-                <MenuItem text="New" onAction="#newOverwrite"/>
-                <MenuItem text="Open" onAction="#openOverwrite"/>
-                <MenuItem text="Select" onAction="#selectOverwrite"/>
-                <MenuItem text="Save" onAction="#saveOverwrite"/>
-                <MenuItem text="SaveAs" onAction="#selectAndsaveOverwrite"/>
+                <MenuItem text="New" onAction="#newOverwriteFile"/>
+                <MenuItem text="Open" onAction="#openOverwriteFile"/>
+                <MenuItem text="Select" onAction="#selectOverwriteFile"/>
+                <MenuItem text="Save" onAction="#saveOverwriteFile"/>
+                <MenuItem text="SaveAs" onAction="#selectAndSaveOverwriteFile"/>
             </Menu>
             <Menu text="Assembly">
                 <MenuItem text="New" onAction="#newAssembly"/>
@@ -47,15 +44,27 @@
     <bottom>
         <Label fx:id="selectedFileDisplay"/>
     </bottom>
-    <left>
-        <Label fx:id="lineCounter" styleClass="line-counter">
-            00000000
-        </Label>
-    </left>
     <center>
-        <TextArea fx:id="input" promptText="Enter text here..." minWidth="320" styleClass="text-field-full-height" />
+        <StackPane minWidth="320">
+            <VirtualizedScrollPane fx:id="assemblyScrollPane" visible="false" styleClass="scroll-pane">
+                <content>
+                    <CodeArea fx:id="input" styleClass="code-area"/>
+                </content>
+            </VirtualizedScrollPane>
+            <ScrollPane fx:id="overwriteScrollPane" fitToWidth="true" visible="false" styleClass="scroll-pane">
+                <content>
+                    <VBox fx:id="overwrites">
+                        <Button text="New Overwrite" onAction="#newOverwrite" styleClass="button"/>
+                    </VBox>
+                </content>
+            </ScrollPane>
+        </StackPane>
     </center>
     <right>
-        <TextArea fx:id="output" editable="false" promptText="Output goes here..." styleClass="text-field-full-height" />
+        <VirtualizedScrollPane styleClass="scroll-pane">
+            <content>
+                <StyleClassedTextArea fx:id="output" editable="false" styleClass="code-area" />
+            </content>
+        </VirtualizedScrollPane>
     </right>
 </BorderPane>

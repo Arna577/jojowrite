@@ -10,6 +10,10 @@ version '1.0-SNAPSHOT'
 
 repositories {
     mavenCentral()
+
+    maven {
+        url 'https://oss.sonatype.org/content/repositories/snapshots/'
+    }
 }
 
 ext {
@@ -38,6 +42,9 @@ dependencies {
 
     testImplementation("org.junit.jupiter:junit-jupiter-api:${junitVersion}")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:${junitVersion}")
+
+    //https://github.com/FXMisc/RichTextFX
+    implementation group: 'org.fxmisc.richtext', name: 'richtextfx', version: '0.11.2'
 }
 
 test {

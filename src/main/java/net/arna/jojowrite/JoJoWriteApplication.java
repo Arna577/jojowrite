@@ -6,9 +6,11 @@ import javafx.scene.Scene;
 import javafx.scene.text.Font;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+import org.fxmisc.richtext.CodeArea;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InvalidObjectException;
 
 public class JoJoWriteApplication extends Application {
     private static Stage stage;
@@ -16,6 +18,7 @@ public class JoJoWriteApplication extends Application {
     private static FileChooser patchFileChooser;
     private static FileChooser assemblyFileChooser;
     private static FileChooser overwriteFileChooser;
+    private static CodeArea codeArea;
 
     @Override
     public void start(final Stage stage) throws IOException {
@@ -27,6 +30,8 @@ public class JoJoWriteApplication extends Application {
         scene.getStylesheets().add(css);
 
         Font.loadFont(JoJoWriteApplication.class.getResourceAsStream("fonts/CourierPrime-Regular.ttf"), 16);
+
+        initCodeArea(scene);
 
         stage.setTitle("JoJoWrite");
         stage.setScene(scene);
@@ -55,6 +60,13 @@ public class JoJoWriteApplication extends Application {
         overwriteFileChooser.getExtensionFilters().add(
                 new FileChooser.ExtensionFilter("JoJoWrite Overwrite Files", '*' + JJWUtils.OVERWRITE_FILE_EXTENSION)
         );
+    }
+
+    private void initCodeArea(Scene scene) throws InvalidObjectException {
+        codeArea = (CodeArea) scene.lookup("#input");
+        if (codeArea == null) throw new InvalidObjectException("No CodeArea found!");
+
+
     }
 
     public static File chooseFile(JJWUtils.FileType type) {

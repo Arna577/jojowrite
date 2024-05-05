@@ -3,6 +3,8 @@ module net.arna.jojowrite {
     requires javafx.fxml;
 
     requires org.controlsfx.controls;
+    requires org.fxmisc.richtext;
+    requires org.fxmisc.flowless;
 
     opens net.arna.jojowrite to javafx.fxml;
     exports net.arna.jojowrite;

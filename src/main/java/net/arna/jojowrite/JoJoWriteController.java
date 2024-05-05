@@ -2,30 +2,57 @@ package net.arna.jojowrite;
 
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
+import javafx.fxml.Initializable;
 import javafx.scene.control.Label;
-import javafx.scene.control.TextArea;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.TextField;
+import javafx.scene.layout.VBox;
 import net.arna.jojowrite.JJWUtils.FileType;
+import org.fxmisc.flowless.VirtualizedScrollPane;
+import org.fxmisc.richtext.CodeArea;
+import org.fxmisc.richtext.StyleClassedTextArea;
 
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
+import java.net.URL;
+import java.util.ResourceBundle;
 
-public class JoJoWriteController {
+public class JoJoWriteController implements Initializable {
     public FileMap files = new FileMap(this);
 
-    public FileType currentlyOpen = FileType.ROM;
+    public FileType openType = FileType.ROM;
 
-    @FXML
-    public Label lineCounter;
-    @FXML
-    public TextArea input;
-    @FXML
-    public TextArea output;
     @FXML
     public Label selectedFileDisplay;
 
-    public JoJoWriteController() {
-        System.out.println(input);
+    @FXML
+    public VirtualizedScrollPane<?> assemblyScrollPane;
+    @FXML
+    public CodeArea input;
+
+    @FXML
+    public ScrollPane overwriteScrollPane;
+    @FXML
+    public VBox overwrites;
+
+    @FXML
+    public StyleClassedTextArea output;
+
+    @Override
+    public void initialize(URL location, ResourceBundle resources) {
+        newOverwrite();
+    }
+
+    public void setOpenType(FileType type) {
+        openType = type;
+
+        // Special editor style for overwrite files
+        if (type == FileType.OVERWRITE) {
+            overwriteScrollPane.setVisible(true);
+            assemblyScrollPane.setVisible(false);
+        } else {
+            assemblyScrollPane.setVisible(true);
+            overwriteScrollPane.setVisible(false);
+        }
     }
 
     public void saveFile(FileType type) {
@@ -47,7 +74,7 @@ public class JoJoWriteController {
             outWriter.close();
             System.out.println("Successfully saved " + type.name() + " file.");
         } catch (IOException e) {
-            System.out.println("An error occurred.");
+            System.out.println("An error occurred while saving file.");
             e.printStackTrace();
         }
     }
@@ -100,23 +127,25 @@ public class JoJoWriteController {
     }
 
     /** OVERWRITE **/
-    public void newOverwrite(ActionEvent actionEvent) {
+    public void newOverwriteFile(ActionEvent actionEvent) {
         throw new UnsupportedOperationException("Not implemented.");
     }
 
-    public void openOverwrite(ActionEvent actionEvent) {
-        throw new UnsupportedOperationException("Not implemented.");
+    public void openOverwriteFile(ActionEvent actionEvent) {
+        setOpenType(FileType.OVERWRITE);
+        input.clear();
+        input.replace(0, input.getLength(), "", "basic-text");
     }
 
-    public File selectOverwrite(ActionEvent actionEvent) {
+    public File selectOverwriteFile(ActionEvent actionEvent) {
         return selectFile(FileType.OVERWRITE);
     }
 
-    public void saveOverwrite(ActionEvent actionEvent) {
+    public void saveOverwriteFile(ActionEvent actionEvent) {
         saveFile(FileType.OVERWRITE);
     }
 
-    public void selectAndsaveOverwrite(ActionEvent actionEvent) {
+    public void selectAndSaveOverwriteFile(ActionEvent actionEvent) {
         selectAndSaveFile(FileType.OVERWRITE);
     }
 
@@ -126,7 +155,32 @@ public class JoJoWriteController {
     }
 
     public void openAssembly(ActionEvent actionEvent) {
-        throw new UnsupportedOperationException("Not implemented.");
+        if (!files.containsKey(FileType.ASSEMBLY)) {
+            selectAssembly(actionEvent);
+            if (!files.containsKey(FileType.ASSEMBLY)) {
+                return;
+            }
+        }
+
+        setOpenType(FileType.ASSEMBLY);
+        input.clear();
+
+        try
+        {
+            FileReader reader = new FileReader( files.get(FileType.ASSEMBLY) );
+            BufferedReader br = new BufferedReader(reader);
+            String line;
+            while ((line = br.readLine()) != null) {
+                System.out.println(line);
+                input.appendText(line);
+            }
+            br.close();
+            input.requestFocus();
+        }
+        catch (Exception e) {
+            System.out.println("An error occurred while opening assembly file.");
+            e.printStackTrace();
+        }
     }
 
     public File selectAssembly(ActionEvent actionEvent) {
@@ -149,5 +203,13 @@ public class JoJoWriteController {
         );
         System.out.println(out);
         selectedFileDisplay.setText(out.toString());
+    }
+
+    public void newOverwrite() {
+        TextField overwriteField = new TextField("0x06");
+        overwriteField.getStyleClass().add("code-area");
+        overwriteField.setPromptText("ADDRESS, OVERWRITE");
+
+        overwrites.getChildren().add(0, overwriteField);
     }
 }

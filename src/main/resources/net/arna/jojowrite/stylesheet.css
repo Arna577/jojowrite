@@ -17,21 +17,55 @@
     -fx-text-fill: -jjw-text-color;
 }
 
-.text-field-full-height {
+.button {
+    -fx-border-width: 1;
+    -fx-border-style: solid;
+    -fx-border-color: -jjw-light-color;
+
+    -fx-background-radius: 2 2 2 2;
     -fx-background-color: -jjw-light-color;
+
     -fx-text-fill: -jjw-text-color;
 }
 
-.text-field-full-height .content {
+.code-area {
+    -fx-border-width: 1;
+    -fx-border-style: solid;
+    -fx-border-color: -jjw-light-color;
+
+    -fx-background-radius: 2 2 2 2;
     -fx-background-color: -jjw-dark-color;
-    -fx-background-radius: 0;
+
+    -fx-text-fill: -jjw-text-color;
+}
+
+.basic-text {
+    -fx-fill: -jjw-text-color;
+}
+
+.code-area .text {
+    -fx-fill: -jjw-text-color;
+    -fx-font-family: "Courier Prime";
+    -fx-font-size: 16;
+}
+
+.scroll-pane {
+    -fx-background-color: -jjw-dark-color;
+}
+
+.scroll-pane > .viewport {
+   -fx-background-color: -jjw-background-color;
+}
+
+.scroll-bar:horizontal, .scroll-bar:vertical{
+    -fx-background-color:transparent;
 }
 
 /* Menu coloring (https://stackoverflow.com/questions/12299162/how-to-style-menu-button-and-menu-items) */
 * {
-    -fx-my-menu-color: #222244;
+    -fx-my-menu-color: -jjw-light-color;
     -fx-my-menu-color-highlighted: #455A64;
-    -fx-my-menu-font-color: #F9F9F9;
+    -fx-my-menu-font-color: -jjw-text-color;
     -fx-my-menu-font-color-highlighted: #FFFFFF;
 }
 
