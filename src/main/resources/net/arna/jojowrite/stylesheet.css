@@ -3,6 +3,7 @@
     -jjw-dark-color: #111122;
     -jjw-light-color: #222244;
     -jjw-text-color: #F9F9F9;
+    -jjw-highlight-color: #455A64;
 
     -fx-text-fill: -jjw-text-color;
 }
@@ -13,14 +14,15 @@
     -fx-font-size: 16;
 }
 
-.line-counter {
-    -fx-text-fill: -jjw-text-color;
+/* Text Styling */
+.basic-text {
+    -fx-fill: -jjw-text-color;
 }
 
+/* Buttons */
 .button {
     -fx-border-width: 1;
-    -fx-border-style: solid;
-    -fx-border-color: -jjw-light-color;
+    -fx-border-color: transparent;
 
     -fx-background-radius: 2 2 2 2;
     -fx-background-color: -jjw-light-color;
@@ -28,6 +30,22 @@
     -fx-text-fill: -jjw-text-color;
 }
 
+.button:hover {
+    -fx-background-radius: 3 3 3 3;
+    -fx-background-color: -jjw-highlight-color;
+}
+
+.delete-button {
+    -fx-border-width: 1;
+    -fx-border-color: transparent;
+
+    -fx-background-radius: 2 2 2 2;
+    -fx-background-color: #A42233;
+
+    -fx-text-fill: -jjw-text-color;
+}
+
+/* Code Area */
 .code-area {
     -fx-border-width: 1;
     -fx-border-style: solid;
@@ -39,16 +57,13 @@
     -fx-text-fill: -jjw-text-color;
 }
 
-.basic-text {
-    -fx-fill: -jjw-text-color;
-}
-
 .code-area .text {
     -fx-fill: -jjw-text-color;
     -fx-font-family: "Courier Prime";
     -fx-font-size: 16;
 }
 
+/* Scroll Pane */
 .scroll-pane {
     -fx-background-color: -jjw-dark-color;
 }
@@ -64,7 +79,7 @@
 /* Menu coloring (https://stackoverflow.com/questions/12299162/how-to-style-menu-button-and-menu-items) */
 * {
     -fx-my-menu-color: -jjw-light-color;
-    -fx-my-menu-color-highlighted: #455A64;
+    -fx-my-menu-color-highlighted: -jjw-highlight-color;
     -fx-my-menu-font-color: -jjw-text-color;
     -fx-my-menu-font-color-highlighted: #FFFFFF;
 }

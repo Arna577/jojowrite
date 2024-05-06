@@ -5,9 +5,9 @@ import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
-import javafx.scene.control.TextField;
 import javafx.scene.layout.VBox;
 import net.arna.jojowrite.JJWUtils.FileType;
+import net.arna.jojowrite.node.Overwrite;
 import org.fxmisc.flowless.VirtualizedScrollPane;
 import org.fxmisc.richtext.CodeArea;
 import org.fxmisc.richtext.StyleClassedTextArea;
@@ -17,6 +17,8 @@ import java.net.URL;
 import java.util.ResourceBundle;
 
 public class JoJoWriteController implements Initializable {
+    private static JoJoWriteController instance;
+
     public FileMap files = new FileMap(this);
 
     public FileType openType = FileType.ROM;
@@ -37,8 +39,13 @@ public class JoJoWriteController implements Initializable {
     @FXML
     public StyleClassedTextArea output;
 
+    public static JoJoWriteController getInstance() {
+        return instance;
+    }
+
     @Override
     public void initialize(URL location, ResourceBundle resources) {
+        instance = this;
         newOverwrite();
     }
 
@@ -59,17 +66,19 @@ public class JoJoWriteController implements Initializable {
         try ( FileWriter outWriter = new FileWriter(files.get(type)) ) {
             switch (type) {
                 case OVERWRITE -> {
-
+                    for (int i = overwrites.getChildren().size() - 1; i >= 0; i--) {
+                        if (overwrites.getChildren().get(i) instanceof Overwrite overwrite)
+                            outWriter.append(overwrite.toString());
+                    }
                 }
+
                 case ASSEMBLY -> {
 
                 }
-                case PATCH -> {
 
-                }
-                case ROM -> {
-                    System.out.println("Attempted to write to ROM file! Writing to ROMs should be done via patching.");
-                }
+                case PATCH -> outWriter.append(input.getText());
+
+                case ROM -> System.out.println("Attempted to write to ROM file! Writing to ROMs should be done via patching.");
             }
             outWriter.close();
             System.out.println("Successfully saved " + type.name() + " file.");
@@ -100,64 +109,128 @@ public class JoJoWriteController implements Initializable {
     }
 
     public void selectAndSaveFile(FileType type) {
-        if (selectFile(type) != null)
+        if (files.get(type) == null)
+            selectFile(type);
+        if (files.get(type) != null)
             saveFile(type);
     }
 
     /** PATCH **/
-    public void trySavePatch(ActionEvent actionEvent) {
+    public void trySavePatch() {
         trySaveFile(FileType.PATCH);
     }
 
-    public File selectPatch(ActionEvent actionEvent) {
+    public void openPatch(ActionEvent actionEvent) {
+        if (files.get(FileType.PATCH) == null) {
+            selectPatch();
+            if (files.get(FileType.PATCH) == null) {
+                return;
+            }
+        }
+
+        setOpenType(FileType.PATCH);
+        input.clear();
+
+        try
+        {
+            FileReader reader = new FileReader( files.get(FileType.PATCH) );
+            BufferedReader br = new BufferedReader(reader);
+            String line;
+            while ((line = br.readLine()) != null) {
+                input.appendText(line);
+                input.appendText("\n");
+            }
+            br.close();
+            input.requestFocus();
+        }
+        catch (Exception e) {
+            System.out.println("An error occurred while opening assembly file.");
+            e.printStackTrace();
+        }
+    }
+
+    public File selectPatch() {
         return selectFile(FileType.PATCH);
     }
 
-    public void selectAndSavePatch(ActionEvent actionEvent) {
+    public void selectAndSavePatch() {
         selectAndSaveFile(FileType.PATCH);
     }
 
-    public void patchROM(ActionEvent actionEvent) {
+    public void patchROM() {
         throw new UnsupportedOperationException("Not implemented.");
     }
 
     /** ROM **/
-    public File selectROM(ActionEvent actionEvent) {
+    public File selectROM() {
         return selectFile(FileType.ROM);
     }
 
     /** OVERWRITE **/
-    public void newOverwriteFile(ActionEvent actionEvent) {
+    public void newOverwriteFile() {
         throw new UnsupportedOperationException("Not implemented.");
     }
 
-    public void openOverwriteFile(ActionEvent actionEvent) {
+    public void openOverwriteFile() {
+        if (files.get(FileType.OVERWRITE) == null) {
+            selectOverwriteFile();
+            if (files.get(FileType.OVERWRITE) == null) {
+                return;
+            }
+        }
+
         setOpenType(FileType.OVERWRITE);
-        input.clear();
-        input.replace(0, input.getLength(), "", "basic-text");
+        overwrites.getChildren().removeIf(
+                node -> node instanceof Overwrite
+        );
+
+        try
+        {
+            FileReader reader = new FileReader( files.get(FileType.OVERWRITE) );
+            BufferedReader br = new BufferedReader(reader);
+            boolean readingOverwrite = true;
+            String line, overwriteText = "";
+            while ((line = br.readLine()) != null) {
+                if (readingOverwrite) {
+                    overwriteText = line;
+                } else {
+                    overwriteText += '\n';
+                    overwriteText += line;
+                    Overwrite.fromCharSequence(overwrites, overwriteText);
+                }
+
+                readingOverwrite = !readingOverwrite;
+            }
+            br.close();
+            input.requestFocus();
+        }
+        catch (Exception e) {
+            System.out.println("An error occurred while opening assembly file.");
+            e.printStackTrace();
+        }
     }
 
-    public File selectOverwriteFile(ActionEvent actionEvent) {
+    public File selectOverwriteFile() {
         return selectFile(FileType.OVERWRITE);
     }
 
-    public void saveOverwriteFile(ActionEvent actionEvent) {
-        saveFile(FileType.OVERWRITE);
+    public void trySaveOverwriteFile() {
+        trySaveFile(FileType.OVERWRITE);
     }
 
-    public void selectAndSaveOverwriteFile(ActionEvent actionEvent) {
+    public void selectAndSaveOverwriteFile() {
         selectAndSaveFile(FileType.OVERWRITE);
     }
 
     /** ASSEMBLY **/
-    public void newAssembly(ActionEvent actionEvent) {
+    public void newAssembly() {
         throw new UnsupportedOperationException("Not implemented.");
     }
 
     public void openAssembly(ActionEvent actionEvent) {
-        if (!files.containsKey(FileType.ASSEMBLY)) {
+        if (files.get(FileType.ASSEMBLY) == null) {
             selectAssembly(actionEvent);
-            if (!files.containsKey(FileType.ASSEMBLY)) {
+            if (files.get(FileType.ASSEMBLY) == null) {
                 return;
             }
         }
@@ -171,7 +244,6 @@ public class JoJoWriteController implements Initializable {
             BufferedReader br = new BufferedReader(reader);
             String line;
             while ((line = br.readLine()) != null) {
-                System.out.println(line);
                 input.appendText(line);
             }
             br.close();
@@ -187,8 +259,8 @@ public class JoJoWriteController implements Initializable {
         return selectFile(FileType.ASSEMBLY);
     }
 
-    public void saveAssembly(ActionEvent actionEvent) {
-        saveFile(FileType.ASSEMBLY);
+    public void trySaveAssembly(ActionEvent actionEvent) {
+        trySaveFile(FileType.ASSEMBLY);
     }
 
     public void selectAndSaveAssembly(ActionEvent actionEvent) {
@@ -201,15 +273,20 @@ public class JoJoWriteController implements Initializable {
         files.forEach(
                 (key, value) -> out.append(key.name()).append(": ").append(value).append(" | ")
         );
-        System.out.println(out);
+        //System.out.println(out);
         selectedFileDisplay.setText(out.toString());
     }
 
     public void newOverwrite() {
-        TextField overwriteField = new TextField("0x06");
-        overwriteField.getStyleClass().add("code-area");
-        overwriteField.setPromptText("ADDRESS, OVERWRITE");
+        new Overwrite(overwrites);
+    }
 
-        overwrites.getChildren().add(0, overwriteField);
+    public void showAsLua() {
+        output.clear();
+
+    }
+
+    public void showInRom(ActionEvent event) {
+
     }
 }

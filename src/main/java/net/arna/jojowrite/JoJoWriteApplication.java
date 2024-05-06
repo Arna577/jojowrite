@@ -24,7 +24,7 @@ public class JoJoWriteApplication extends Application {
     public void start(final Stage stage) throws IOException {
         // Initialization
         FXMLLoader fxmlLoader = new FXMLLoader(JoJoWriteApplication.class.getResource("main-view.fxml"));
-        Scene scene = new Scene(fxmlLoader.load(), 640, 480);
+        Scene scene = new Scene(fxmlLoader.load(), 960, 640);
 
         String css = JoJoWriteApplication.class.getResource("stylesheet.css").toExternalForm();
         scene.getStylesheets().add(css);
