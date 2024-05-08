@@ -2,7 +2,7 @@
     -jjw-background-color: #000011;
     -jjw-dark-color: #111122;
     -jjw-light-color: #222244;
-    -jjw-text-color: #F9F9F9;
+    -jjw-text-color: #E9E9A9;
     -jjw-highlight-color: #455A64;
 
     -fx-text-fill: -jjw-text-color;
@@ -15,6 +15,10 @@
 }
 
 /* Text Styling */
+.overwritten-text {
+    -fx-fill: #F97979;
+}
+
 .basic-text {
     -fx-fill: -jjw-text-color;
 }
@@ -50,17 +54,19 @@
     -fx-border-width: 1;
     -fx-border-style: solid;
     -fx-border-color: -jjw-light-color;
+    -fx-line-spacing: 20em;
 
     -fx-background-radius: 2 2 2 2;
     -fx-background-color: -jjw-dark-color;
-
-    -fx-text-fill: -jjw-text-color;
 }
 
 .code-area .text {
-    -fx-fill: -jjw-text-color;
     -fx-font-family: "Courier Prime";
     -fx-font-size: 16;
+}
+
+.caret {
+    -fx-stroke: -jjw-text-color;
 }
 
 /* Scroll Pane */

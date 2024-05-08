@@ -66,7 +66,7 @@ public class JoJoWriteApplication extends Application {
         codeArea = (CodeArea) scene.lookup("#input");
         if (codeArea == null) throw new InvalidObjectException("No CodeArea found!");
 
-
+        //TODO: figure out how to recolor CodeArea caret with stylesheet.css
     }
 
     public static File chooseFile(JJWUtils.FileType type) {

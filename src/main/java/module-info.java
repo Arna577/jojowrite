@@ -8,4 +8,5 @@ module net.arna.jojowrite {
 
     opens net.arna.jojowrite to javafx.fxml;
     exports net.arna.jojowrite;
+    exports net.arna.jojowrite.node;
 }
