@@ -28,6 +28,8 @@ import java.util.ArrayList;
  *  help menus
  *  ROMTextArea width snapping
  *  patch files
+ *  culling of overwrites the user can't see
+ *  select overwrite from ROM red text
  */
 public class Overwrite extends VBox {
     private final HBox overwriteAndOptions;
@@ -60,7 +62,7 @@ public class Overwrite extends VBox {
         overwriteAndOptions = new HBox();
 
         addressField = new HexTextField("00", 8);
-        addressField.getStyleClass().add("main");
+        addressField.getStyleClass().add("address");
         addressField.setPromptText("Address");
         addressField.setMinWidth(100.0);
         addressField.setPrefWidth(100.0);

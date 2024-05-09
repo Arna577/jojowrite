@@ -50,7 +50,11 @@
 
             <HBox fx:id="overwriteControls" BorderPane.alignment="TOP_RIGHT">
                 <Button text="New Overwrite" onAction="#newOverwrite" styleClass="button"/>
-                <Button text="Show as LUA" onAction="#showAsLua" styleClass="button"/>
+                <Button text="Show as LUA" onAction="#showOverwritesAsLUA" styleClass="button"/>
+            </HBox>
+
+            <HBox fx:id="patchControls" BorderPane.alignment="TOP_RIGHT">
+                <Button text="Add Currently Loaded" onAction="#newOverwrite" styleClass="button"/>
             </HBox>
         </HBox>
     </top>

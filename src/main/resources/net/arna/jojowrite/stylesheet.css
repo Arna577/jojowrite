@@ -31,6 +31,14 @@
     -fx-fill: -jjw-text-color;
 }
 
+/* Overwrite Address Field */
+.address {
+    -fx-background-color: -jjw-background-color;
+    -fx-font-family: "Courier Prime";
+    -fx-font-size: 16;
+    -fx-text-fill: -jjw-highlight-text-color;
+}
+
 /* Buttons */
 .button {
     -fx-border-width: 1;
@@ -80,6 +88,11 @@
 
 .caret {
     -fx-stroke: -jjw-text-color;
+}
+
+/* Assembly */
+.keyword {
+    -fx-text-fill: -jjw-highlight-color;
 }
 
 /* Scroll Pane */

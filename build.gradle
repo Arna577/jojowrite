@@ -45,6 +45,9 @@ dependencies {
 
     //https://github.com/FXMisc/RichTextFX
     implementation group: 'org.fxmisc.richtext', name: 'richtextfx', version: '0.11.2'
+
+    // https://mvnrepository.com/artifact/org.reactfx/reactfx
+    //implementation group: 'org.reactfx', name: 'reactfx', version: '2.0-M5'
 }
 
 test {

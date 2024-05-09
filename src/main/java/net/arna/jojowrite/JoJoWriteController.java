@@ -7,12 +7,12 @@ import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.stage.StageStyle;
 import net.arna.jojowrite.JJWUtils.FileType;
 import net.arna.jojowrite.node.AssemblyArea;
 import net.arna.jojowrite.node.Overwrite;
 import net.arna.jojowrite.node.ROMTextArea;
 import org.fxmisc.flowless.VirtualizedScrollPane;
-import org.fxmisc.richtext.CodeArea;
 import org.fxmisc.richtext.StyleClassedTextArea;
 
 import java.io.*;
@@ -44,15 +44,18 @@ public class JoJoWriteController implements Initializable {
     public ScrollPane overwriteScrollPane;
         @FXML
         public VBox overwrites;
-        @FXML
-        public HBox overwriteControls;
+    @FXML
+    public HBox overwriteControls;
 
     @FXML
     public VirtualizedScrollPane<?> outputScrollPane;
         @FXML
         public StyleClassedTextArea output;
 
-    private static Set<Node> romNodes, overwriteNodes, assemblyNodes;
+    @FXML
+    public HBox patchControls;
+
+    private static Set<Node> romNodes, overwriteNodes, assemblyNodes, patchNodes;
 
     @FXML
     public HBox romTextBox;
@@ -74,6 +77,7 @@ public class JoJoWriteController implements Initializable {
         assemblyNodes = Set.of(assemblyScrollPane, outputScrollPane);
         overwriteNodes = Set.of(romTextBox, overwriteScrollPane, overwrites, overwriteControls);
         romNodes = Set.of(romTextBox);
+        patchNodes = Set.of(patchControls);
 
         romScrollBar.valueProperty().addListener(
             (observable, oldValue, newValue) -> {
@@ -96,15 +100,21 @@ public class JoJoWriteController implements Initializable {
             case OVERWRITE -> {
                 overwriteNodes.forEach(node -> node.setVisible(true));
                 assemblyNodes.forEach(node -> node.setVisible(false));
+                patchNodes.forEach(node -> node.setVisible(false));
             }
             case ASSEMBLY -> {
                 overwriteNodes.forEach(node -> node.setVisible(false));
                 assemblyNodes.forEach(node -> node.setVisible(true));
+                patchNodes.forEach(node -> node.setVisible(false));
             }
             case ROM -> {
                 overwriteNodes.forEach(node -> node.setVisible(false));
                 assemblyNodes.forEach(node -> node.setVisible(false));
                 romNodes.forEach(node -> node.setVisible(true));
+                patchNodes.forEach(node -> node.setVisible(false));
+            }
+            case PATCH -> {
+                patchNodes.forEach(node -> node.setVisible(true));
             }
         }
     }
@@ -238,8 +248,15 @@ public class JoJoWriteController implements Initializable {
             return;
 
         setOpenType(FileType.OVERWRITE);
-        //TODO: figure out java destructors
-        overwrites.getChildren().removeIf(node -> node instanceof Overwrite);
+
+        var iter = overwrites.getChildren().iterator();
+        while (iter.hasNext()) {
+            Node node = iter.next();
+            if (node instanceof Overwrite overwrite) {
+                iter.remove();
+                //TODO: figure out java destructors
+            }
+        }
 
         try
         {
@@ -321,6 +338,11 @@ public class JoJoWriteController implements Initializable {
             }
             br.close();
             input.requestFocus();
+
+            if (input.getText().isEmpty()) {
+                input.append("//Example comment & instruction\n", BASIC_TEXT);
+                input.append("06280000:noop", BASIC_TEXT);
+            }
         }
         catch (Exception e) {
             JJWUtils.printException(e, "An error occurred while opening assembly file.");
@@ -355,7 +377,7 @@ public class JoJoWriteController implements Initializable {
         new Overwrite(overwrites);
     }
 
-    public void showAsLua() {
+    public void showOverwritesAsLUA() {
         output.clear();
         throw new UnsupportedOperationException("Not implemented!");
     }
@@ -433,8 +455,15 @@ public class JoJoWriteController implements Initializable {
         romArea.resetUndoManager();
     }
 
-    public void showOverwriteHelp(ActionEvent actionEvent) {
-        var dialog = new Alert(Alert.AlertType.INFORMATION,
+    private static final String dialogPaneStyle = "-fx-background-color: #000011;" +
+            " -fx-font-family: \"Courier Prime\";" +
+            " -fx-font-size: 10;" +
+            " -fx-text-fill: #A9A9E9;" +
+            " -fx-text-color: #A9A9E9;";
+    public void showOverwriteHelp() {
+        var dialog = new Alert(Alert.AlertType.INFORMATION);
+        dialog.setTitle("Overwrite Info");
+        dialog.setHeaderText(
                 """
                         Overwrites are the building blocks of a rom-hack.
                         In JoJoWrite they are marked as red text, and are coerced into aligning with byte data (i.e. their characters come in pairs).
@@ -449,8 +478,13 @@ public class JoJoWriteController implements Initializable {
                         It is also possible to select a segment of a temporary overwrite to extract, requiring at least two characters to be selected.
                         
                         When placed inside a .overwrite file, they take the form of:
-                        [ADDRESS]:[DATA]\\n[COMMENT]\\n""");
-        dialog.setTitle("Overwrite Info");
+                        [ADDRESS]:[DATA]\\n[COMMENT]\\n"""
+        );
+        dialog.initStyle(StageStyle.UNDECORATED);
+        dialog.getDialogPane().setStyle(dialogPaneStyle);
+        dialog.getDialogPane().getChildren().forEach(
+                node -> node.setStyle(dialogPaneStyle)
+        );
         dialog.showAndWait();
     }
 }
