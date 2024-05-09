@@ -1,12 +1,22 @@
 package net.arna.jojowrite.node;
 
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.paint.Paint;
 import javafx.scene.shape.Line;
 import net.arna.jojowrite.JJWUtils;
+import net.arna.jojowrite.JoJoWriteController;
 import org.fxmisc.richtext.StyleClassedTextArea;
+import org.fxmisc.richtext.util.UndoUtils;
+
+import java.util.Collection;
+
+import static net.arna.jojowrite.TextStyles.BASIC_TEXT;
+import static net.arna.jojowrite.TextStyles.TEMP_OVERWRITE_TEXT;
 
 public class ROMTextArea extends StyleClassedTextArea {
     boolean writingOriginal = false;
+    private String originalText = "";
 
     private int address = 0x00000000;
 
@@ -14,21 +24,49 @@ public class ROMTextArea extends StyleClassedTextArea {
     private static final double BYTE_WIDTH = 19.2;
     private final Line[] lines = new Line[NUM_LINES];
 
-
     public ROMTextArea() {
         super();
 
         setWrapText(true);
 
-        //addEventFilter(ScrollEvent.SCROLL, Event::consume);
-        /*
-        addEventFilter(KeyEvent.KEY_PRESSED, new EventHandler<KeyEvent>() {
-            @Override
-            public void handle(KeyEvent event) {
+        addEventFilter(KeyEvent.KEY_PRESSED, event -> {
+            if (event.getCode() == KeyCode.ENTER) {
+                if (JoJoWriteController.getInstance().openType != JJWUtils.FileType.OVERWRITE) return;
 
+                int initPos = getCaretPosition();
+                int endPos = initPos;
+
+                if (getSelection().getLength() < 2) {
+                    while (true) {
+                        Collection<String> styleClass = getStyleAtPosition(endPos);
+                        // Style as a selector is not an amazing idea, but I'll see if it causes problems down the line :)
+                        if (!styleClass.contains(TEMP_OVERWRITE_TEXT))
+                            break;
+                        endPos--;
+                        if (endPos <= 0)
+                            break;
+                    }
+
+                    if (initPos % 2 == 1)
+                        initPos++;
+                    if (endPos % 2 == 1)
+                        endPos--;
+                } else {
+                    endPos = getSelection().getStart();
+                    initPos = getSelection().getEnd();
+                }
+
+                Overwrite overwrite = new Overwrite(JoJoWriteController.getInstance().overwrites);
+                overwrite.setAddressText(Integer.toHexString(address + endPos / 2));
+                overwrite.setOverwriteText(getText(endPos, initPos));
+                overwrite.focus();
+
+                JoJoWriteController.getInstance().refreshOverwrites();
+
+                event.consume();
             }
         });
-        */
+
         //setParagraphGraphicFactory(LineNumberFactory.get(this));
 
         for (int i = 0; i < NUM_LINES; i++) {
@@ -63,11 +101,34 @@ public class ROMTextArea extends StyleClassedTextArea {
         this.writingOriginal = writingOriginal;
     }
 
+    public void restoreOriginal() {
+        replace(0, getLength(), originalText, BASIC_TEXT);
+    }
+
     @Override
     public void clear() {
         writingOriginal = true;
+        originalText = "";
         super.clear();
         writingOriginal = false;
+    }
+
+    @Override
+    public void paste() {
+        // TODO: unfuck pasting
+    }
+
+    public void resetUndoManager() {
+        setUndoManager(UndoUtils.defaultUndoManager(this));
+    }
+
+    @Override
+    public void append(String text, String styleClass) {
+        super.append(text, styleClass);
+        if (writingOriginal) {
+            originalText += text;
+            resetUndoManager();
+        }
     }
 
     @Override
@@ -88,19 +149,11 @@ public class ROMTextArea extends StyleClassedTextArea {
                     return;
             }
 
-            replace(start, end, text, "overwritten-text");
+            replace(start, end, text, TEMP_OVERWRITE_TEXT);
         }
     }
 
-    @Override
-    public void replaceSelection(String replacement) {
-        replacement = replacement.toLowerCase();
-        if (validateText(replacement)) {
-            super.replaceSelection(replacement);
-        }
-    }
-
-    public long getAddress() {
+    public int getAddress() {
         return address;
     }
 

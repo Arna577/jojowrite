@@ -3,13 +3,11 @@ package net.arna.jojowrite.node;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
-import javafx.scene.input.KeyCode;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import net.arna.jojowrite.JoJoWriteController;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.ArrayList;
 
 /*
  * [Address Text]:[Overwrite Text][Show in ROM][Delete]
@@ -25,35 +23,43 @@ import java.util.Map;
 
 /*
  * todo: Overwrite > From ROM Differences
- *  direct overwriting (ROM view)
  *  hotkeys (Ctrl+G > GOTO | Ctrl+F > FIND)
+ *  selecting amount of ROM to put into page
+ *  help menus
+ *  ROMTextArea width snapping
+ *  patch files
  */
 public class Overwrite extends VBox {
     private final HBox overwriteAndOptions;
     /**
-     * Contains an 8-digit hex pointer to ROM memory.
+     * Contains text of an 8-digit hex pointer to ROM memory.
      * Updating this fields text will cause a {@link Overwrite#separateBytes()}
      */
     private final HexTextField addressField;
     /**
-     * Contains an unbounded list of hex values.
+     * Contains an unbounded string of hex digits, which are coerced into pairs.
      * Updating this fields text will cause a {@link Overwrite#separateBytes()}
      */
     private final HexTextField overwriteField;
+    /**
+     * May contain most characters, used by the user to annotate what this Overwrite does.
+     */
     private final TextField commentField;
     private final Button showInROM;
     private final Button delete;
     /**
      * A HashMap containing indices and byte Strings, used for rendering Overwrites in the {@link ROMTextArea}.
      */
-    private final Map<Integer, String> byteMap = new HashMap<>();
+    private final ArrayList<String> byteMap = new ArrayList<>();
 
-    public Overwrite(VBox overwrites) {
+    private static final double OVERWRITE_MIN_WIDTH = 240.0, OVERWRITE_MAX_WIDTH = 640.0;
+
+    public Overwrite() {
         getStyleClass().add("code-area");
 
         overwriteAndOptions = new HBox();
 
-        addressField = new HexTextField("06", 8);
+        addressField = new HexTextField("00", 8);
         addressField.getStyleClass().add("main");
         addressField.setPromptText("Address");
         addressField.setMinWidth(100.0);
@@ -66,15 +72,17 @@ public class Overwrite extends VBox {
         overwriteField = new HexTextField();
         overwriteField.getStyleClass().add("code-area");
         overwriteField.setPromptText("Overwrite Bytes");
-        overwriteField.setPrefWidth(320.0);
+        overwriteField.setMinWidth(OVERWRITE_MIN_WIDTH);
+        overwriteField.setMaxWidth(OVERWRITE_MAX_WIDTH);
 
         overwriteField.setOnKeyTyped(
                 keyEvent -> {
                     int length = overwriteField.getLength();
 
                     // Adjust size to fit
-                    double newLength = length * overwriteField.getFont().getSize();
-                    if (newLength < 320.0) newLength = 320.0;
+                    double newLength = length * overwriteField.getFont().getSize() / 1.33;
+                    if (newLength < OVERWRITE_MIN_WIDTH) newLength = OVERWRITE_MIN_WIDTH;
+                    if (newLength > OVERWRITE_MAX_WIDTH) newLength = OVERWRITE_MAX_WIDTH;
                     overwriteField.setPrefWidth(newLength);
 
                     // Make sure bytes are in pairs
@@ -88,19 +96,19 @@ public class Overwrite extends VBox {
                     }
 
                     separateBytes();
+                    JoJoWriteController.getInstance().refreshOverwrites();
                 }
         );
 
         showInROM = new Button("Show in ROM");
         showInROM.setMinWidth(130.0);
-        showInROM.setOnAction(event -> JoJoWriteController.getInstance().showInRom(
+        showInROM.setOnAction(event -> JoJoWriteController.getInstance().showInROM(
                 getAddress(), overwriteField.getLength()
         ));
 
         delete = new Button("Delete");
         delete.getStyleClass().add("delete-button");
         delete.setMinWidth(85.0);
-        delete.setOnAction(event -> overwrites.getChildren().remove(this));
 
         overwriteAndOptions.getChildren().addAll(addressField, addressSeparator, overwriteField, showInROM, delete);
 
@@ -109,24 +117,33 @@ public class Overwrite extends VBox {
         commentField.setPromptText("Explain what this overwrite does");
 
         getChildren().addAll(overwriteAndOptions, commentField);
+    }
 
+    /**
+     * Constructs an Overwrite and assigns it to:
+     * @param overwrites a container {@link VBox}
+     */
+    public Overwrite(VBox overwrites) {
+        this();
+        delete.setOnAction(event -> {
+                    overwrites.getChildren().remove(this);
+                    JoJoWriteController.getInstance().refreshOverwrites();
+                }
+        );
         overwrites.getChildren().add(0, this);
     }
 
     private void separateBytes() {
         //System.out.println("Separating bytes...");
-
         byteMap.clear();
         String byteText = getOverwriteText();
-        int address = getAddress();
         for (int i = 0; i < byteText.length(); i += 2) {
-            //System.out.println(byteText.substring(i, i + 2));
             // 2 digits represent 1 byte. DisplayROMAt() doubles the address to get the correct placement.
-            byteMap.put(address + i / 2, byteText.substring(i, i + 2));
+            byteMap.add(byteText.substring(i, i + 2));
         }
     }
 
-    public Map<Integer, String> getByteMap() {
+    public ArrayList<String> getByteMap() {
         return byteMap;
     }
 
@@ -168,11 +185,10 @@ public class Overwrite extends VBox {
         for (int i = 0; i < seq.length(); i++) {
             char c = seq.charAt(i);
             if (c == ':') {
-                if (hitColon) {
-                    throw new IllegalStateException("Hit colon twice during Overwrite.fromCharSequence()! Should be ADDRESS: BYTES\\nCOMMENT");
-                } else {
+                if (hitColon)
+                    commentText.append(':');
+                else
                     hitColon = true;
-                }
             } else if (c == '\n') {
                 if (hitNewline) {
                     throw new IllegalStateException("Hit newline twice during Overwrite.fromCharSequence()! Should be ADDRESS: BYTES\\nCOMMENT");
@@ -189,5 +205,13 @@ public class Overwrite extends VBox {
         overwrite.setOverwriteText(overwriteText.toString());
         overwrite.setCommentText(commentText.toString());
         return overwrite;
+    }
+
+    /**
+     * Requests focus to this Overwrites {@link Overwrite#overwriteField} and places the caret at the end.
+     */
+    public void focus() {
+        overwriteField.requestFocus();
+        overwriteField.positionCaret(overwriteField.getLength());
     }
 }

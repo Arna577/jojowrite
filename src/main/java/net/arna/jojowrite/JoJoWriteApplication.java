@@ -6,6 +6,7 @@ import javafx.scene.Scene;
 import javafx.scene.text.Font;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+import net.arna.jojowrite.JJWUtils.FileType;
 import org.fxmisc.richtext.CodeArea;
 
 import java.io.File;
@@ -18,20 +19,17 @@ public class JoJoWriteApplication extends Application {
     private static FileChooser patchFileChooser;
     private static FileChooser assemblyFileChooser;
     private static FileChooser overwriteFileChooser;
-    private static CodeArea codeArea;
 
     @Override
     public void start(final Stage stage) throws IOException {
         // Initialization
         FXMLLoader fxmlLoader = new FXMLLoader(JoJoWriteApplication.class.getResource("main-view.fxml"));
-        Scene scene = new Scene(fxmlLoader.load(), 960, 640);
+        Scene scene = new Scene(fxmlLoader.load(), 1280, 720);
 
         String css = JoJoWriteApplication.class.getResource("stylesheet.css").toExternalForm();
         scene.getStylesheets().add(css);
 
         Font.loadFont(JoJoWriteApplication.class.getResourceAsStream("fonts/CourierPrime-Regular.ttf"), 16);
-
-        initCodeArea(scene);
 
         stage.setTitle("JoJoWrite");
         stage.setScene(scene);
@@ -62,14 +60,16 @@ public class JoJoWriteApplication extends Application {
         );
     }
 
-    private void initCodeArea(Scene scene) throws InvalidObjectException {
-        codeArea = (CodeArea) scene.lookup("#input");
-        if (codeArea == null) throw new InvalidObjectException("No CodeArea found!");
-
-        //TODO: figure out how to recolor CodeArea caret with stylesheet.css
+    public static File saveFile(FileType type) {
+        return switch (type) {
+            case ROM -> ROMFileChooser.showSaveDialog(stage);
+            case PATCH -> patchFileChooser.showSaveDialog(stage);
+            case ASSEMBLY -> assemblyFileChooser.showSaveDialog(stage);
+            case OVERWRITE -> overwriteFileChooser.showSaveDialog(stage);
+        };
     }
 
-    public static File chooseFile(JJWUtils.FileType type) {
+    public static File chooseFile(FileType type) {
         return switch (type) {
             case ROM -> ROMFileChooser.showOpenDialog(stage);
             case PATCH -> patchFileChooser.showOpenDialog(stage);

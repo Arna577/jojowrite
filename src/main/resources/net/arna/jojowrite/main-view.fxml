@@ -10,6 +10,8 @@
 <?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.HBox?>
 <?import net.arna.jojowrite.node.ROMTextArea?>
+<?import javafx.scene.control.skin.SplitPaneSkin.Content?>
+<?import net.arna.jojowrite.node.AssemblyArea?>
 <BorderPane xmlns="http://javafx.com/javafx/8.0.111" xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="net.arna.jojowrite.JoJoWriteController" styleClass="main">
     <top>
@@ -42,7 +44,7 @@
                     <MenuItem text="Apply" onAction="#patchROM"/>
                 </Menu>
                 <Menu text="Help">
-
+                    <MenuItem text="Overwrites" onAction="#showOverwriteHelp"/>
                 </Menu>
             </MenuBar>
 
@@ -61,7 +63,7 @@
         <StackPane minWidth="320">
             <VirtualizedScrollPane fx:id="assemblyScrollPane" styleClass="scroll-pane">
                 <content>
-                    <CodeArea fx:id="input" styleClass="code-area"/>
+                    <AssemblyArea fx:id="input" styleClass="code-area"/>
                 </content>
             </VirtualizedScrollPane>
 
@@ -71,7 +73,7 @@
                         <ROMTextArea fx:id="romArea" styleClass="code-area"/>
                     </content>
                 </VirtualizedScrollPane>
-                <ScrollBar fx:id="romScrollBar" orientation="VERTICAL" styleClass="scroll-pane"/>
+                <ScrollBar fx:id="romScrollBar" blockIncrement="20.0" orientation="VERTICAL" styleClass="scroll-pane"/>
             </HBox>
         </StackPane>
     </center>

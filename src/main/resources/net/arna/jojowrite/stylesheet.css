@@ -2,8 +2,12 @@
     -jjw-background-color: #000011;
     -jjw-dark-color: #111122;
     -jjw-light-color: #222244;
-    -jjw-text-color: #E9E9A9;
     -jjw-highlight-color: #455A64;
+
+    -jjw-text-color-overwritten: #F96969;
+    -jjw-text-color-temp: #F9F979;
+    -jjw-text-color: #A9A9E9;
+    -jjw-highlight-text-color: #FFFFFF;
 
     -fx-text-fill: -jjw-text-color;
 }
@@ -16,7 +20,11 @@
 
 /* Text Styling */
 .overwritten-text {
-    -fx-fill: #F97979;
+    -fx-fill: -jjw-text-color-overwritten;
+}
+
+.temp-overwrite-text {
+    -fx-fill: -jjw-text-color-temp;
 }
 
 .basic-text {
@@ -39,6 +47,12 @@
     -fx-background-color: -jjw-highlight-color;
 }
 
+.button:hover,
+.button:focused,
+.button:showing {
+    -fx-text-fill: -jjw-highlight-text-color;
+}
+
 .delete-button {
     -fx-border-width: 1;
     -fx-border-color: transparent;
@@ -54,7 +68,6 @@
     -fx-border-width: 1;
     -fx-border-style: solid;
     -fx-border-color: -jjw-light-color;
-    -fx-line-spacing: 20em;
 
     -fx-background-radius: 2 2 2 2;
     -fx-background-color: -jjw-dark-color;
@@ -84,10 +97,10 @@
 
 /* Menu coloring (https://stackoverflow.com/questions/12299162/how-to-style-menu-button-and-menu-items) */
 * {
-    -fx-my-menu-color: -jjw-light-color;
+    -fx-my-menu-color: -jjw-dark-color;
     -fx-my-menu-color-highlighted: -jjw-highlight-color;
     -fx-my-menu-font-color: -jjw-text-color;
-    -fx-my-menu-font-color-highlighted: #FFFFFF;
+    -fx-my-menu-font-color-highlighted: -jjw-highlight-text-color;
 }
 
 /* MENU BAR + Top-level MENU BUTTONS */
