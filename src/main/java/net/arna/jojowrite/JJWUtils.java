@@ -23,6 +23,11 @@ public interface JJWUtils {
         return hex.matcher(text).matches();
     }
 
+    Pattern dec = Pattern.compile("[0-9]+");
+    static boolean isDecimal(String text) {
+        return dec.matcher(text).matches();
+    }
+
     static UnaryOperator<TextFormatter.Change> limitLengthOperator(int maxLength) {
         return c -> {
             if (c.isContentChange()) {
@@ -41,7 +46,8 @@ public interface JJWUtils {
         };
     }
 
-    byte[] HEX_ARRAY = "0123456789abcdef".getBytes(StandardCharsets.US_ASCII);
+    String HEX_DIGITS = "0123456789abcdef";
+    byte[] HEX_ARRAY = HEX_DIGITS.getBytes(StandardCharsets.US_ASCII);
     static String bytesToHex(byte[] bytes) {
         byte[] hexChars = new byte[bytes.length * 2];
         for (int j = 0; j < bytes.length; j++) {
