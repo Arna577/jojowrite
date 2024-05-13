@@ -4,6 +4,7 @@ import javafx.event.EventHandler;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.MenuItem;
 import javafx.scene.input.KeyEvent;
+import net.arna.jojowrite.JoJoWriteController;
 import net.arna.jojowrite.asm.Compiler;
 import org.fxmisc.richtext.CodeArea;
 import org.fxmisc.richtext.model.Paragraph;
@@ -43,13 +44,18 @@ public class AssemblyArea extends CodeArea {
 
         setOnKeyTyped(
                 event -> {
-                    String firstLine = getText(0);
+                    JoJoWriteController.getInstance().clearOutput();
 
-                    var possible = Compiler.getPossibleInstructions(firstLine).toList();
-                    if (possible.size() == 1) {
-                        System.out.println(
-                                Compiler.compileToHexString(possible.get(0), firstLine)
-                        );
+                    // getParagraphs() causes an IllegalAccessError due to some insane fucking module linking issue
+
+                    String[] paragraphs = getText().split("\n");
+
+                    for (String paragraph : paragraphs) {
+                        var possible = Compiler.getPossibleInstructions(paragraph).toList();
+                        if (possible.size() == 1)
+                            JoJoWriteController.getInstance().appendToOutput(
+                                    Compiler.compileToHexString(possible.get(0), paragraph) + '\n'
+                            );
                     }
                 }
         );

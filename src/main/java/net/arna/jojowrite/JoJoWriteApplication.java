@@ -7,6 +7,7 @@ import javafx.scene.text.Font;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import net.arna.jojowrite.JJWUtils.FileType;
+import net.arna.jojowrite.asm.Compiler;
 import org.fxmisc.richtext.CodeArea;
 
 import java.io.File;
@@ -30,6 +31,8 @@ public class JoJoWriteApplication extends Application {
         scene.getStylesheets().add(css);
 
         Font.loadFont(JoJoWriteApplication.class.getResourceAsStream("fonts/CourierPrime-Regular.ttf"), 16);
+
+        Compiler.loadAssemblyDefinitions(JoJoWriteApplication.class.getResourceAsStream("asmdef.txt"));
 
         stage.setTitle("JoJoWrite");
         stage.setScene(scene);

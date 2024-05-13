@@ -18,31 +18,35 @@ public final class Instruction {
         this.comment = comment;
     }
 
+    public Instruction(Collection<Fragment> fragments, Format format) {
+        this(fragments, format, null);
+    }
+
     public boolean hasVariants() {
         return fragments.stream().anyMatch(fragment -> fragment.getType() == Fragment.FragmentType.VARIABLE);
     }
 
     /**
-     * @return This instruction in the format seen in the manual.
+     * @return Instruction@hash{ format seen in manual -> compiled bytemap }
      */
     @Override
     public String toString() {
-        return "Instruction@" + Integer.toHexString(hashCode()) + "{ " + format.toString() + " }";
+        StringBuilder out = new StringBuilder();
+        for (Fragment fragment : fragments) out.append(fragment.asSingleChar());
+        return "Instruction@" + Integer.toHexString(hashCode()) + "{ " + format.toString() + " -> " + out + " }";
     }
 
+    //todo: apply disp fuckery to .W and .L instructions
     public String compileToHexString(Map<Fragment, String> fragmentData) {
         StringBuilder out = new StringBuilder();
         for (Fragment fragment : fragments) {
-            if (fragment.getType() == Fragment.FragmentType.STATIC)
-                out.append(fragment);
-            else if (fragment.getType() == Fragment.FragmentType.VARIABLE)
+            if (fragment.getType() == Fragment.FragmentType.STATIC) {
+                out.append(fragment.asSingleChar());
+            } else if (fragment.getType() == Fragment.FragmentType.VARIABLE) {
                 out.append(fragmentData.get(fragment));
+            }
         }
         return out.toString();
-    }
-
-    public Collection<Fragment> getFragments() {
-        return fragments;
     }
 
     public Format getFormat() {

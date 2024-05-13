@@ -249,14 +249,8 @@ public class JoJoWriteController implements Initializable {
 
         setOpenType(FileType.OVERWRITE);
 
-        var iter = overwrites.getChildren().iterator();
-        while (iter.hasNext()) {
-            Node node = iter.next();
-            if (node instanceof Overwrite overwrite) {
-                iter.remove();
-                //TODO: figure out java destructors
-            }
-        }
+        //TODO: figure out java destructors
+        overwrites.getChildren().removeIf(node -> node instanceof Overwrite);
 
         try
         {
@@ -486,5 +480,13 @@ public class JoJoWriteController implements Initializable {
                 node -> node.setStyle(dialogPaneStyle)
         );
         dialog.showAndWait();
+    }
+
+    public void clearOutput() {
+        output.clear();
+    }
+
+    public void appendToOutput(String s) {
+        output.append(s, BASIC_TEXT);
     }
 }

@@ -10,6 +10,7 @@ import java.util.Map;
  * Wrapper for a Collection that represents individual parts of an instruction, in the order they appear.
  */
 public class Format {
+    private DisplacementMutation dispMutation = DisplacementMutation.NONE;
     private final int variableParts;
     private final Collection<Part> parts;
 
@@ -21,7 +22,7 @@ public class Format {
     public boolean matches(String in) {
         for (Part part : parts) {
             // Procedurally consumes the string as the pattern check continues.
-            Part.MatchData matchData = part.matches(in);
+            Part.MatchData matchData = part.matches(in, dispMutation);
             if (!matchData.match()) return false;
             in = matchData.remaining();
             if (in.equals("")) return true; // Partial match
@@ -33,7 +34,7 @@ public class Format {
         Map<Fragment, String> out = new HashMap<>();
         for (Part part : parts) {
             // Procedurally consumes the string as the pattern check continues.
-            Part.MatchData matchData = part.matches(in);
+            Part.MatchData matchData = part.matches(in, dispMutation);
             if (!matchData.match()) throw new IllegalStateException("Trying to mapFragments for non-matching instruction!");
             in = matchData.remaining();
             matchData.fragmentHexDigitMap().ifPresent(out::putAll);
@@ -49,5 +50,9 @@ public class Format {
                 part -> out.append(part.toString())
         );
         return out.toString();
+    }
+
+    public void setDispMutation(DisplacementMutation dispMutation) {
+        this.dispMutation = dispMutation;
     }
 }

@@ -1,0 +1,111 @@
+// Formatting notes:
+//		parameterless instructions like DIVOU need two spaces before defining their instruction code
+//		remove the notes from the manual (marked as *1, *2, *3...)
+// Data Transfer Instructions
+MOV #imm,Rn 1110nnnniiiiiiii imm → Sign extension → Rn 1 —
+MOV.W @(disp,PC),Rn 1001nnnndddddddd (disp × 2 + PC) → Sign extension → Rn 1 —
+MOV.L @(disp,PC),Rn 1101nnnndddddddd (disp × 4 + PC) → Rn 1 —
+MOV Rm,Rn 0110nnnnmmmm0011 Rm → Rn 1 —
+MOV.B Rm,@Rn 0010nnnnmmmm0000 Rm → (Rn) 1 —
+MOV.W Rm,@Rn 0010nnnnmmmm0001 Rm → (Rn) 1 —
+MOV.L Rm,@Rn 0010nnnnmmmm0010 Rm → (Rn) 1 —
+MOV.B @Rm,Rn 0110nnnnmmmm0000 (Rm) → Sign extension → Rn 1 —
+MOV.W @Rm,Rn 0110nnnnmmmm0001 (Rm) → Sign extension → Rn 1 —
+MOV.L @Rm,Rn 0110nnnnmmmm0010 (Rm) → Rn 1 —
+MOV.B Rm,@–Rn 0010nnnnmmmm0100 Rn–1 → Rn, Rm → (Rn) 1 —
+MOV.W Rm,@–Rn 0010nnnnmmmm0101 Rn–2 → Rn, Rm → (Rn) 1 —
+MOV.L Rm,@–Rn 0010nnnnmmmm0110 Rn–4 → Rn, Rm → (Rn) 1 —
+MOV.B @Rm+,Rn 0110nnnnmmmm0100 (Rm) → Sign extension → Rn,Rm + 1 → Rm 1 —
+MOV.W @Rm+,Rn 0110nnnnmmmm0101 (Rm) → Sign extension → Rn,Rm + 2 → Rm 1 —
+MOV.L @Rm+,Rn 0110nnnnmmmm0110 (Rm) → Rn,Rm + 4 → Rm 1 —
+MOV.B R0,@(disp,Rn) 10000000nnnndddd R0 → (disp + Rn) 1 —
+MOV.W R0,@(disp,Rn) 10000001nnnndddd R0 → (disp × 2 + Rn) 1 —
+MOV.L Rm,@(disp,Rn) 0001nnnnmmmmdddd Rm → (disp × 4 + Rn) 1 —
+MOV.B @(disp,Rm),R0 10000100mmmmdddd (disp + Rm) → Sign extension → R0 1 —
+MOV.W @(disp,Rm),R0 10000101mmmmdddd (disp × 2 + Rm) → Sign extension → R0 1 —
+MOV.L @(disp,Rm),Rn 0101nnnnmmmmdddd (disp × 4 + Rm) → Rn 1 —
+MOV.B Rm,@(R0,Rn) 0000nnnnmmmm0100 Rm → (R0 + Rn) 1 —
+MOV.W Rm,@(R0,Rn) 0000nnnnmmmm0101 Rm → (R0 + Rn) 1 —
+// Data Transfer Instructions (cont)
+MOV.L Rm,@(R0,Rn) 0000nnnnmmmm0110 Rm → (R0 + Rn) 1 —
+MOV.B @(R0,Rm),Rn 0000nnnnmmmm1100 (R0 + Rm) → Sign extension → Rn 1 —
+MOV.W @(R0,Rm),Rn 0000nnnnmmmm1101 (R0 + Rm) → Sign extension → Rn 1 —
+MOV.L @(R0,Rm),Rn 0000nnnnmmmm1110 (R0 + Rm) → Rn 1 —
+MOV.B R0,@(disp,GBR) 11000000dddddddd R0 → (disp + GBR) 1 —
+MOV.W R0,@(disp,GBR) 11000001dddddddd R0 → (disp × 2 + GBR) 1 —
+MOV.L R0,@(disp,GBR) 11000010dddddddd R0 → (disp × 4+ GBR) 1 —
+MOV.B @(disp,GBR),R0 11000100dddddddd (disp + GBR) → Sign extension → R0 1 —
+MOV.W @(disp,GBR),R0 11000101dddddddd (disp × 2 + GBR) → Sign extension → R0 1 —
+MOV.L @(disp,GBR),R0 11000110dddddddd (disp × 4 + GBR) → R0 1 —
+MOVA @(disp,PC),R0 11000111dddddddd disp × 4 + PC → R0 1 —
+MOVT Rn 0000nnnn00101001 T → Rn 1 —
+SWAP.B Rm,Rn 0110nnnnmmmm1000 Rm → Swap upper and lower 2 bytes → Rn 1 —
+SWAP.W Rm,Rn 0110nnnnmmmm1001 Rm → Swap upper and lower word → Rn 1 —
+XTRCT Rm,Rn 0010nnnnmmmm1101 Center 32 bits of Rm and Rn → Rn 1 —
+// Arithmetic Instructions
+ADD Rm,Rn 0011nnnnmmmm1100 Rn + Rm → Rn 1 —
+ADD #imm,Rn 0111nnnniiiiiiii Rn + imm → Rn 1 —
+ADDC Rm,Rn 0011nnnnmmmm1110 Rn + Rm + T → Rn, Carry → T 1 Carry
+ADDV Rm,Rn 0011nnnnmmmm1111 Rn + Rm → Rn, Overflow → T 1 Overflow
+CMP/EQ #imm,R0 10001000iiiiiiii If R0 = imm, 1 → T 1 Comparison result
+CMP/EQ Rm,Rn 0011nnnnmmmm0000 If Rn = Rm, 1 → T 1 Comparison result
+CMP/HS Rm,Rn 0011nnnnmmmm0010 If Rn≥Rm with unsigned data, 1 → T 1 Comparison result
+CMP/GE Rm,Rn 0011nnnnmmmm0011 If Rn ≥ Rm with signed data, 1 → T 1 Comparison result
+CMP/HI Rm,Rn 0011nnnnmmmm0110 If Rn > Rm with unsigned data, 1 → T 1 Comparison result
+CMP/GT Rm,Rn 0011nnnnmmmm0111 If Rn > Rm with signed data, 1 → T 1 Comparison result 
+CMP/PL Rn 0100nnnn00010101 If Rn > 0, 1 → T 1 Comparison result
+CMP/PZ Rn 0100nnnn00010001 If Rn ≥ 0, 1 → T 1 Comparison result
+CMP/STR Rm,Rn 0010nnnnmmmm1100 If Rn and Rm have an equivalent byte, 1 → T 1 Comparison result
+DIV1 Rm,Rn 0011nnnnmmmm0100 Single-step division (Rn/Rm) 1 Calculation result
+DIV0S Rm,Rn 0010nnnnmmmm0111 MSB of Rn → Q, MSB of Rm → M, M ^ Q → T 1 Calculation result
+DIV0U  0000000000011001 0 → M/Q/T 1 0
+// Arithmetic Instructions (cont)
+DMULS.L Rm,Rn 0011nnnnmmmm1101 Signed operation of Rn x Rm → MACH, MACL 32 x 32 → 64 bits 2 to 4 —
+DMULU.L Rm,Rn 0011nnnnmmmm0101 Unsigned operation of Rn x Rm → MACH, MACL 32 x 32 → 64 bits 2 to 4 —
+DT Rn 0100nnnn00010000 Rn - 1 → Rn, when Rn is 0, 1 → T. When Rn is nonzero, 0 → T 1 Comparison result
+EXTS.B Rm,Rn 0110nnnnmmmm1110 A byte in Rm is signextended → Rn 1 —
+EXTS.W Rm,Rn 0110nnnnmmmm1111 A word in Rm is signextended → Rn 1 —
+EXTU.B Rm,Rn 0110nnnnmmmm1100 A byte in Rm is zeroextended → Rn 1 —
+EXTU.W Rm,Rn 0110nnnnmmmm1101 A word in Rm is zeroextended → Rn 1 —
+MAC.L @Rm+,@Rn+ 0000nnnnmmmm1111 Signed operation of (Rn) x (Rm) + MAC → MAC 32 x 32 + 64 → 64 bits 3/(2 to 4) —
+MAC.W @Rm+,@Rn+ 0100nnnnmmmm1111 Signed operation of (Rn) × (Rm) + MAC → MAC (SH-2 CPU) 16 x 16 + 64 → 64 bits (SH-1 CPU) 16 x 16 + 42 → 42 bits 3/(2) —
+MUL.L Rm,Rn 0000nnnnmmmm0111 Rn x Rm → MACL, 32 x 32 → 32 bits 2 to 4 —
+MULS.W Rm,Rn 0010nnnnmmmm1111 Signed operation of Rn × Rm → MAC 16 x 16 → 32 bits 1 to 3 —
+// Arithmetic Instructions (cont)
+MULU.W Rm,Rn 0010nnnnmmmm1110 Unsigned operation of Rn × Rm → MAC 16 x 16 → 32 bits 1 to 3 —
+NEG Rm,Rn 0110nnnnmmmm1011 0–Rm → Rn 1 —
+NEGC Rm,Rn 0110nnnnmmmm1010 0–Rm–T → Rn, Borrow → T 1 Borrow
+SUB Rm,Rn 0011nnnnmmmm1000 Rn–Rm → Rn 1 —
+SUBC Rm,Rn 0011nnnnmmmm1010 Rn–Rm–T → Rn, Borrow → T 1 Borrow
+SUBV Rm,Rn 0011nnnnmmmm1011 Rn–Rm → Rn, Underflow → T 1 Underflow
+// Logic Operation Instructions
+AND Rm,Rn 0010nnnnmmmm1001 Rn & Rm → Rn 1 —
+AND #imm,R0 11001001iiiiiiii R0 & imm → R0 1 —
+AND.B #imm,@(R0,GBR) 11001101iiiiiiii (R0 + GBR) & imm → (R0 + GBR) 3 —
+NOT Rm,Rn 0110nnnnmmmm0111 ~Rm → Rn 1 —
+OR Rm,Rn 0010nnnnmmmm1011 Rn | Rm → Rn 1 —
+OR #imm,R0 11001011iiiiiiii R0 | imm → R0 1 —
+OR.B #imm,@(R0,GBR) 11001111iiiiiiii (R0 + GBR) | imm → (R0 + GBR) 3 —
+TAS.B @Rn 0100nnnn00011011 If (Rn) is 0, 1 → T; 1 → MSB of (Rn) 4 Test result
+TST Rm,Rn 0010nnnnmmmm1000 Rn & Rm; if the result is 0, 1 → T 1 Test result
+TST #imm,R0 11001000iiiiiiii R0 & imm; if the result is 0, 1 → T 1 Test result
+// Logic Operation Instructions (cont)
+TST.B #imm,@(R0,GBR) 11001100iiiiiiii (R0 + GBR) & imm; if the result is 0, 1 → T 3 Test result
+XOR Rm,Rn 0010nnnnmmmm1010 Rn ^ Rm → Rn 1 —
+XOR #imm,R0 11001010iiiiiiii R0 ^ imm → R0 1 —
+XOR.B #imm,@(R0,GBR) 11001110iiiiiiii (R0 + GBR) ^ imm → (R0 + GBR) 3 —
+// Shift Instructions
+ROTL Rn 0100nnnn00000100 T ← Rn ← MSB 1 MSB
+ROTR Rn 0100nnnn00000101 LSB → Rn → T 1 LSB
+ROTCL Rn 0100nnnn00100100 T ← Rn ← T 1 MSB
+ROTCR Rn 0100nnnn00100101 T → Rn → T 1 LSB
+SHAL Rn 0100nnnn00100000 T ← Rn ← 0 1 MSB
+SHAR Rn 0100nnnn00100001 MSB → Rn → T 1 LSB
+SHLL Rn 0100nnnn00000000 T ← Rn ← 0 1 MSB
+SHLR Rn 0100nnnn00000001 0 → Rn → T 1 LSB
+SHLL2 Rn 0100nnnn00001000 Rn<<2 → Rn 1 —
+SHLR2 Rn 0100nnnn00001001 Rn>>2 → Rn 1 —
+SHLL8 Rn 0100nnnn00011000 Rn<<8 → Rn 1 —
+SHLR8 Rn 0100nnnn00011001 Rn>>8 → Rn 1 —
+SHLL16 Rn 0100nnnn00101000 Rn<<16 → Rn 1 —
+SHLR16 Rn 0100nnnn00101001 Rn>>16 → Rn 1 —

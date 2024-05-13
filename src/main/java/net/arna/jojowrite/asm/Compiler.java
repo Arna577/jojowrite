@@ -1,13 +1,15 @@
 package net.arna.jojowrite.asm;
 
+import net.arna.jojowrite.JJWUtils;
 import net.arna.jojowrite.asm.instruction.*;
 
-import java.util.*;
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 import java.util.stream.Stream;
-
-import static net.arna.jojowrite.asm.instruction.Fragment.StaticFragment;
-import static net.arna.jojowrite.asm.instruction.Fragment.VariableFragment;
-import static net.arna.jojowrite.asm.instruction.Part.ArgumentType.*;
 
 public class Compiler {
     private static final List<Instruction> instructions = new ArrayList<>();
@@ -28,48 +30,119 @@ public class Compiler {
         instructions.add(i);
     }
 
-    static {
-        registerInstruction(
-                new Instruction(
-                        List.of(StaticFragment((byte) 0), StaticFragment((byte) 0), StaticFragment((byte) 0), StaticFragment((byte) 9)),
-                        new Format(Collections.singleton(Part.StaticPart("NOOP"))),
-                        "Does nothing lol"
-                )
-        );
+    static class Keyword {
+        private final String format;
+        private final String identifier;
+        private final Part.ArgumentType type;
+        private final int formatLength;
 
-        List<Fragment> movFragments = List.of(
-                StaticFragment((byte) 0b1110), VariableFragment('n'), VariableFragment('i'), VariableFragment('i')
-        );
-        registerInstruction(
-                new Instruction(
-                        movFragments,
-                        new Format(
-                                List.of(
-                                Part.StaticPart("MOV #"),
-                                Part.VariablePart(IMMEDIATE, List.of(movFragments.get(2), movFragments.get(3))),
-                                Part.StaticPart(","),
-                                Part.VariablePart(REGISTER, List.of(movFragments.get(1)))
-                                )
-                        ),
-                        "imm → Sign extension → Rn"
-                )
-        );
+        Keyword(String format, String identifier, Part.ArgumentType type) {
+            this.format = format;
+            this.formatLength = format.length();
+            this.identifier = identifier;
+            this.type = type;
+        }
 
-        List<Fragment> movBFragments = List.of(
-                StaticFragment((byte) 0b1100), StaticFragment((byte) 0), VariableFragment('d'), VariableFragment('d')
-        );
-        registerInstruction(
-                new Instruction(
-                        movBFragments,
-                        new Format(
-                                List.of(
-                                        Part.StaticPart("MOV.B R0,@("),
-                                        Part.VariablePart(IMMEDIATE, List.of(movBFragments.get(2), movBFragments.get(3))),
-                                        Part.StaticPart(",GBR)")
-                                )
-                        ),
-                        "R0 → (disp + GBR)"
-                )
-        );
+        /**
+         * Tests if the {@link StringBuilder} ends with this Keywords {@link Keyword#format}, then removes it from the StringBuilder.
+         * If a match was detected, adds a new {@link Part#StaticPart(String)} and {@link Part#VariablePart(Part.ArgumentType, List)} to:
+         * @param parts     the List of Parts to add to
+         * @param fragments the List of Fragments to link the new Part to
+         * @return whether the StringBuilder ended with the format.
+         */
+        public boolean findMatch(StringBuilder stringBuilder, List<Part> parts, List<Fragment> fragments) {
+            if (stringBuilder.toString().endsWith(format)) {
+                stringBuilder.setLength(stringBuilder.length() - formatLength);
+                parts.add(Part.StaticPart(stringBuilder.toString()));
+                stringBuilder.setLength(0);
+
+                parts.add(Part.VariablePart(type, fragments.stream().filter(fragment ->
+                                fragment.getType() == Fragment.FragmentType.VARIABLE && // 'd' might be 0x0D or disp
+                                        fragment.asSingleChar().equals(identifier)
+                                ).toList()));
+                return true;
+            }
+            return false;
+        }
+    }
+
+    public static Set<Keyword> keywords = Set.of(
+            new Keyword("Rm", "m", Part.ArgumentType.REGISTER),
+            new Keyword("Rn", "n", Part.ArgumentType.REGISTER),
+            new Keyword("imm", "i", Part.ArgumentType.IMMEDIATE),
+            new Keyword("disp", "d", Part.ArgumentType.DISPLACEMENT)
+    );
+
+    public static void loadAssemblyDefinitions(InputStream asmdef) {
+        try (InputStreamReader inputStreamReader = new InputStreamReader(asmdef)) {
+            BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
+
+            while (bufferedReader.ready()) {
+                String instructionDef = bufferedReader.readLine();
+                String[] splitDef = instructionDef.split(" ");
+
+                if (instructionDef.startsWith("//")) continue; // Comments
+
+                if (splitDef.length < 2) {
+                    System.out.println("Dropping invalid asmdef: " + instructionDef);
+                    continue;
+                }
+
+                // Example: MOV #imm,Rn 1110nnnniiiiiiii imm → Sign extension → Rn 1 —
+                String fragmentsStr = splitDef[2]; // Example: "1110nnnniiiiiiii"
+                List<Fragment> fragments = new ArrayList<>();
+                for (int i = 0; i < 16; i += 4) {
+                    String fragmentStr = fragmentsStr.substring(i, i + 4);
+                    try { // Valid binary fragment
+                        byte fragmentValue = Integer.valueOf(fragmentStr, 2).byteValue();
+                        fragments.add(Fragment.StaticFragment(fragmentValue));
+                    } catch (NumberFormatException e) { // Parameterized fragment
+                        char identifier = fragmentStr.charAt(0);
+                        fragments.add(Fragment.VariableFragment(identifier));
+                    }
+                }
+                //fragments.forEach(System.out::println);
+
+                String parameterStr = splitDef[1]; // Example: "#imm,Rn"
+
+                List<Part> parts = new ArrayList<>();
+                if (parameterStr.isEmpty()) { // Parameterless instructions such ass SLEEP, DIV0U
+                    parts.add(Part.StaticPart(splitDef[0]));
+                } else { // Parameterized instructions (most)
+                    String instructionStr = splitDef[0] + " " + parameterStr; // Example: "MOV" + " " + "#imm,Rn"
+                    /*
+                    mmmm: Source register
+                    nnnn: Destination register
+                    iiii: Immediate data
+                    dddd: Displacement
+                    todo: label
+                     */
+                    StringBuilder partStr = new StringBuilder();
+                    while (!instructionStr.isEmpty()) {
+                        partStr.append(instructionStr.charAt(0));
+                        instructionStr = instructionStr.substring(1);
+
+                        keywords.forEach(
+                                keyword -> keyword.findMatch(partStr, parts, fragments)
+                        );
+                    }
+
+                    if (!partStr.isEmpty())
+                        parts.add(Part.StaticPart(partStr.toString()));
+                }
+
+                Format format = new Format(parts);
+                if (splitDef[0].endsWith(".W"))
+                    format.setDispMutation(DisplacementMutation.WORD);
+                if (splitDef[0].endsWith(".L"))
+                    format.setDispMutation(DisplacementMutation.LONG);
+
+                Instruction newInstruction = new Instruction(fragments, format);
+                registerInstruction(newInstruction);
+                //System.out.println(newInstruction);
+            }
+        } catch (Exception e) {
+            JJWUtils.printException(e, "Something went wrong while reading asmdef.txt!");
+        }
     }
 }

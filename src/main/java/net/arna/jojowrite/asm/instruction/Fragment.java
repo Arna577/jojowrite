@@ -27,17 +27,25 @@ public class Fragment {
         return type;
     }
 
-    enum FragmentType {
+    public enum FragmentType {
         STATIC,
         VARIABLE,
+    }
+
+    public String asSingleChar() {
+        if (type == FragmentType.STATIC)
+            return JJWUtils.HEX_DIGITS.substring(value, value + 1);
+        if (type == FragmentType.VARIABLE)
+            return identifier.toString();
+        throw new IllegalStateException("Fragment type is invalid!");
     }
 
     @Override
     public String toString() {
         if (type == FragmentType.STATIC)
-            return JJWUtils.HEX_DIGITS.substring(value, value + 1);
+            return "StaticFragment: " + JJWUtils.HEX_DIGITS.charAt(value);
         if (type == FragmentType.VARIABLE)
-            return identifier.toString();
+            return "VariableFragment: " + identifier.toString();
         throw new IllegalStateException("Fragment type is invalid!");
     }
 }

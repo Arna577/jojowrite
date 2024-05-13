@@ -1,6 +1,5 @@
 package net.arna.jojowrite.asm.instruction;
 
-import javafx.util.Pair;
 import net.arna.jojowrite.JJWUtils;
 
 import java.util.HashMap;
@@ -10,6 +9,7 @@ import java.util.Optional;
 
 public final class Part {
     public enum ArgumentType {
+        DISPLACEMENT,
         // #imm
         IMMEDIATE,
         // Rn
@@ -70,7 +70,7 @@ public final class Part {
     public record MatchData(boolean match, String remaining, Optional<Map<Fragment, String>> fragmentHexDigitMap) {}
 
     // Can't parse String by ref
-    public MatchData matches(String in) {
+    public MatchData matches(String in, DisplacementMutation dispMutation) {
         if (type == PartType.STATIC) {
             if (in.startsWith(segment))
                 return new MatchData(true, in.substring(segment.length()), Optional.empty());
@@ -80,6 +80,41 @@ public final class Part {
 
         if (type == PartType.VARIABLE) {
             switch (argumentType) {
+                case DISPLACEMENT -> { // 1 or 2 bytes
+                    int fragSize = fragments.size();
+                    if (dispMutation == DisplacementMutation.NONE) { // Guaranteed 1 byte
+                        if (in.length() >= fragSize) { // "8F" in $8F
+                            for (int i = 0; i < fragSize; i++) {
+                                String digit = String.valueOf(in.charAt(i));
+                                if (!JJWUtils.isHexadecimal(digit)) {
+                                    return raiseCompilerError("Invalid character in Hex literal");
+                                }
+                                out.put(fragments.get(i), digit);
+                            }
+                            return new MatchData(true, in.substring(fragSize), Optional.of(out));
+                        }
+                    } else {
+                        if (in.length() >= fragSize * 2) { // Possibly 2 bytes
+                            for (int i = 0; i < fragSize; i++) {
+                                //todo: fix this faulty logic (its segmented between iterations when it shouldn't be)
+                                String byteStr = in.substring(i * 2, i * 2 + 2);
+                                if (!JJWUtils.isHexadecimal(byteStr)) {
+                                    return raiseCompilerError("Invalid character in Hex literal");
+                                }
+                                int dispValue = Integer.valueOf(byteStr, 16);
+                                if (dispValue % dispMutation.getModifier() != 0) {
+                                    return raiseCompilerError("Invalid displacement");
+                                }
+                                dispValue /= dispMutation.getModifier();
+                                out.put(fragments.get(i), String.valueOf(dispValue));
+                            }
+                            return new MatchData(true, in.substring(fragSize * 2), Optional.of(out));
+                        } else {
+                            return raiseCompilerError("Incorrect displacement length");
+                        }
+                    }
+                }
+
                 case IMMEDIATE -> {
                     int fragSize = fragments.size();
                     if (in.startsWith("$")) { // "$" in $8F
@@ -87,7 +122,7 @@ public final class Part {
                             for (int i = 0; i < fragSize; i++) {
                                 String digit = String.valueOf(in.charAt(1 + i));
                                 if (!JJWUtils.isHexadecimal(digit)) {
-                                    return new MatchData(false, null, null);
+                                    return raiseCompilerError("Invalid character in Hex literal");
                                 }
                                 out.put(fragments.get(i), digit);
                             }
@@ -111,8 +146,7 @@ public final class Part {
                                 }
                                 int registerId = Integer.valueOf(registerNumber, 10);
                                 if (registerId > 0x0F) {
-                                    //todo: raise compiler warning :(
-                                    return new MatchData(false, null, null);
+                                    return raiseCompilerError("Invalid Register ID");
                                 }
                                 out.put(fragments.get(0), JJWUtils.HEX_DIGITS.substring(registerId, registerId + 1));
                                 return new MatchData(true, in.substring(cutoff), Optional.of(out));
@@ -123,7 +157,13 @@ public final class Part {
             }
         }
 
-        return new MatchData(false, null, null);
+        return fail;
+    }
+
+    private static final MatchData fail = new MatchData(false, null, null);
+    public MatchData raiseCompilerError(String error) {
+        //todo: raise compiler error
+        return fail;
     }
 
     @Override
@@ -137,9 +177,10 @@ public final class Part {
 
             switch (argumentType) {
                 case IMMEDIATE -> out.append("$imm");
+                case DISPLACEMENT -> out.append("disp");
                 case REGISTER -> {
                     out.append("R");
-                    out.append(fragments.get(0).toString());
+                    out.append(fragments.get(0).asSingleChar());
                 }
             }
 
