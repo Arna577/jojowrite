@@ -1,5 +1,6 @@
 package net.arna.jojowrite.asm;
 
+import javafx.scene.control.TextArea;
 import net.arna.jojowrite.JJWUtils;
 import net.arna.jojowrite.asm.instruction.*;
 
@@ -13,6 +14,8 @@ import java.util.stream.Stream;
 
 public class Compiler {
     private static final List<Instruction> instructions = new ArrayList<>();
+    private static final List<String> errors = new ArrayList<>();
+    private static TextArea errorOutputArea;
 
     public static Stream<Instruction> getPossibleInstructions(String in) {
         return instructions.stream().filter(
@@ -28,6 +31,22 @@ public class Compiler {
         if (instructions.contains(i))
             throw new IllegalStateException("Attempted to register the same instruction twice!");
         instructions.add(i);
+    }
+
+    public static void clearErrors() {
+        errors.clear();
+        errorOutputArea.clear();
+    }
+
+    public static void raiseError(String err) {
+        errors.add(err);
+        errors.forEach(
+                error -> errorOutputArea.appendText(error + '\n')
+        );
+    }
+
+    public static void setErrorOutputArea(TextArea errorOutputArea) {
+        Compiler.errorOutputArea = errorOutputArea;
     }
 
     static class Keyword {
@@ -70,7 +89,8 @@ public class Compiler {
             new Keyword("Rm", "m", Part.ArgumentType.REGISTER),
             new Keyword("Rn", "n", Part.ArgumentType.REGISTER),
             new Keyword("imm", "i", Part.ArgumentType.IMMEDIATE),
-            new Keyword("disp", "d", Part.ArgumentType.DISPLACEMENT)
+            new Keyword("disp", "d", Part.ArgumentType.DISPLACEMENT),
+            new Keyword("label", "d", Part.ArgumentType.DISPLACEMENT)
     );
 
     public static void loadAssemblyDefinitions(InputStream asmdef) {
@@ -132,7 +152,7 @@ public class Compiler {
                 }
 
                 Format format = new Format(parts);
-                if (splitDef[0].endsWith(".W"))
+                if (splitDef[0].endsWith(".W") || parts.stream().anyMatch(part -> part.getArgumentType() == Part.ArgumentType.LABEL))
                     format.setDispMutation(DisplacementMutation.WORD);
                 if (splitDef[0].endsWith(".L"))
                     format.setDispMutation(DisplacementMutation.LONG);

@@ -1,6 +1,7 @@
 // Formatting notes:
 //		parameterless instructions like DIVOU need two spaces before defining their instruction code
 //		remove the notes from the manual (marked as *1, *2, *3...)
+//		make sure minus signs weren't misinterpreted as dashes (such was the case with MOV.L Rm,@-Rn)
 // Data Transfer Instructions
 MOV #imm,Rn 1110nnnniiiiiiii imm → Sign extension → Rn 1 —
 MOV.W @(disp,PC),Rn 1001nnnndddddddd (disp × 2 + PC) → Sign extension → Rn 1 —
@@ -12,9 +13,9 @@ MOV.L Rm,@Rn 0010nnnnmmmm0010 Rm → (Rn) 1 —
 MOV.B @Rm,Rn 0110nnnnmmmm0000 (Rm) → Sign extension → Rn 1 —
 MOV.W @Rm,Rn 0110nnnnmmmm0001 (Rm) → Sign extension → Rn 1 —
 MOV.L @Rm,Rn 0110nnnnmmmm0010 (Rm) → Rn 1 —
-MOV.B Rm,@–Rn 0010nnnnmmmm0100 Rn–1 → Rn, Rm → (Rn) 1 —
-MOV.W Rm,@–Rn 0010nnnnmmmm0101 Rn–2 → Rn, Rm → (Rn) 1 —
-MOV.L Rm,@–Rn 0010nnnnmmmm0110 Rn–4 → Rn, Rm → (Rn) 1 —
+MOV.B Rm,@-Rn 0010nnnnmmmm0100 Rn–1 → Rn, Rm → (Rn) 1 —
+MOV.W Rm,@-Rn 0010nnnnmmmm0101 Rn–2 → Rn, Rm → (Rn) 1 —
+MOV.L Rm,@-Rn 0010nnnnmmmm0110 Rn–4 → Rn, Rm → (Rn) 1 —
 MOV.B @Rm+,Rn 0110nnnnmmmm0100 (Rm) → Sign extension → Rn,Rm + 1 → Rm 1 —
 MOV.W @Rm+,Rn 0110nnnnmmmm0101 (Rm) → Sign extension → Rn,Rm + 2 → Rm 1 —
 MOV.L @Rm+,Rn 0110nnnnmmmm0110 (Rm) → Rn,Rm + 4 → Rm 1 —
@@ -109,3 +110,41 @@ SHLL8 Rn 0100nnnn00011000 Rn<<8 → Rn 1 —
 SHLR8 Rn 0100nnnn00011001 Rn>>8 → Rn 1 —
 SHLL16 Rn 0100nnnn00101000 Rn<<16 → Rn 1 —
 SHLR16 Rn 0100nnnn00101001 Rn>>16 → Rn 1 —
+// TODO: Branch Instructions
+
+
+
+
+// System Control Instructions
+CLRT  0000000000001000 0 → T 10
+CLRMAC  0000000000101000 0 → MACH, MACL 1 —
+LDC Rm,SR 0100mmmm00001110 Rm → SR 1 LSB
+LDC Rm,GBR 0100mmmm00011110 Rm → GBR 1 —
+LDC Rm,VBR 0100mmmm00101110 Rm → VBR 1 —
+LDC.L @Rm+,SR 0100mmmm00000111 (Rm) → SR, Rm + 4 → Rm 3 LSB
+LDC.L @Rm+,GBR 0100mmmm00010111 (Rm) → GBR, Rm + 4 → Rm 3 —
+LDC.L @Rm+,VBR 0100mmmm00100111 (Rm) → VBR, Rm + 4 → Rm 3 —
+LDS Rm,MACH 0100mmmm00001010 Rm → MACH 1 —
+LDS Rm,MACL 0100mmmm00011010 Rm → MACL 1 —
+LDS Rm,PR 0100mmmm00101010 Rm → PR 1 —
+LDS.L @Rm+,MACH 0100mmmm00000110 (Rm) → MACH, Rm + 4 → Rm 1 —
+LDS.L @Rm+,MACL 0100mmmm00010110 (Rm) → MACL, Rm + 4 → Rm 1 —
+LDS.L @Rm+,PR 0100mmmm00100110 (Rm) → PR, Rm + 4 → Rm 1 —
+NOP  0000000000001001 No operation 1 —
+RTE  0000000000101011 Delayed branch, stack area → PC/SR 4 LSB
+SETT  0000000000011000 1 → T 1 1
+SLEEP  0000000000011011 Sleep 3 —
+STC SR,Rn 0000nnnn00000010 SR → Rn 1 —
+STC GBR,Rn 0000nnnn00010010 GBR → Rn 1 —
+STC VBR,Rn 0000nnnn00100010 VBR → Rn 1 —
+STC.L SR,@-Rn 0100nnnn00000011 Rn–4 → Rn, SR → (Rn) 2 —
+STC.L GBR,@-Rn 0100nnnn00010011 Rn–4 → Rn, GBR → (Rn) 2 —
+STC.L VBR,@-Rn 0100nnnn00100011 Rn–4 → Rn, VBR → (Rn) 2 —
+STS MACH,Rn 0000nnnn00001010 MACH → Rn 1 —
+STS MACL,Rn 0000nnnn00011010 MACL → Rn 1 —
+STS PR,Rn 0000nnnn00101010 PR → Rn 1 —
+// System Control Instructions (cont)
+STS.L MACH,@-Rn 0100nnnn00000010 Rn–4 → Rn, MACH → (Rn) 1 —
+STS.L MACL,@-Rn 0100nnnn00010010 Rn–4 → Rn, MACL → (Rn) 1 —
+STS.L PR,@-Rn 0100nnnn00100010 Rn–4 → Rn, PR → (Rn) 1 —
+TRAPA #imm 11000011iiiiiiii PC/SR → stack area, (imm × 4 + VBR) → PC 8 —

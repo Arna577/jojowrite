@@ -1,6 +1,5 @@
 package net.arna.jojowrite;
 
-import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.Node;
@@ -9,6 +8,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.StageStyle;
 import net.arna.jojowrite.JJWUtils.FileType;
+import net.arna.jojowrite.asm.Compiler;
 import net.arna.jojowrite.node.AssemblyArea;
 import net.arna.jojowrite.node.Overwrite;
 import net.arna.jojowrite.node.ROMTextArea;
@@ -38,7 +38,11 @@ public class JoJoWriteController implements Initializable {
     @FXML
     public VirtualizedScrollPane<?> assemblyScrollPane;
         @FXML
-        public AssemblyArea input;
+        public AssemblyArea assemblyArea;
+    @FXML
+    public ScrollPane errorScrollPane;
+        @FXML
+        public TextArea errorArea;
 
     @FXML
     public ScrollPane overwriteScrollPane;
@@ -74,7 +78,7 @@ public class JoJoWriteController implements Initializable {
     public void initialize(URL location, ResourceBundle resources) {
         instance = this;
 
-        assemblyNodes = Set.of(assemblyScrollPane, outputScrollPane);
+        assemblyNodes = Set.of(errorScrollPane, assemblyScrollPane, outputScrollPane);
         overwriteNodes = Set.of(romTextBox, overwriteScrollPane, overwrites, overwriteControls);
         romNodes = Set.of(romTextBox);
         patchNodes = Set.of(patchControls);
@@ -88,6 +92,8 @@ public class JoJoWriteController implements Initializable {
                 }
             }
         );
+
+        Compiler.setErrorOutputArea(errorArea);
 
         setOpenType(FileType.ROM);
     }
@@ -128,7 +134,7 @@ public class JoJoWriteController implements Initializable {
                             outWriter.append(overwrite.toString());
                 }
 
-                case ASSEMBLY, PATCH -> outWriter.append(input.getText());
+                case ASSEMBLY, PATCH -> outWriter.append(assemblyArea.getText());
 
                 case ROM -> System.out.println("Attempted to write to ROM file! Writing to ROMs should be done via patching.");
             }
@@ -185,7 +191,7 @@ public class JoJoWriteController implements Initializable {
         if (selectPatch() == null) return;
 
         setOpenType(FileType.PATCH);
-        input.clear();
+        assemblyArea.clear();
 
         try
         {
@@ -193,11 +199,11 @@ public class JoJoWriteController implements Initializable {
             BufferedReader br = new BufferedReader(reader);
             String line;
             while ((line = br.readLine()) != null) {
-                input.appendText(line);
-                input.appendText("\n");
+                assemblyArea.appendText(line);
+                assemblyArea.appendText("\n");
             }
             br.close();
-            input.requestFocus();
+            assemblyArea.requestFocus();
         }
         catch (Exception e) {
             JJWUtils.printException(e, "An error occurred while opening assembly file.");
@@ -320,7 +326,7 @@ public class JoJoWriteController implements Initializable {
             return;
 
         setOpenType(FileType.ASSEMBLY);
-        input.clear();
+        assemblyArea.clear();
 
         try
         {
@@ -328,14 +334,14 @@ public class JoJoWriteController implements Initializable {
             BufferedReader br = new BufferedReader(reader);
             String line;
             while ((line = br.readLine()) != null) {
-                input.appendText(line);
+                assemblyArea.appendText(line);
             }
             br.close();
-            input.requestFocus();
+            assemblyArea.requestFocus();
 
-            if (input.getText().isEmpty()) {
-                input.append("//Example comment & instruction\n", BASIC_TEXT);
-                input.append("06280000:noop", BASIC_TEXT);
+            if (assemblyArea.getText().isEmpty()) {
+                assemblyArea.append("//Example comment & instruction\n", BASIC_TEXT);
+                assemblyArea.append("06280000:noop", BASIC_TEXT);
             }
         }
         catch (Exception e) {
@@ -378,8 +384,13 @@ public class JoJoWriteController implements Initializable {
 
     public void showInROM(int address, int length) {
         if (romArea.getText().isEmpty()) return;
-        romScrollBar.setValue(address); // Causes displayROMAt(address) via ChangeListener
-        romArea.selectRange(0, length);
+        try {
+            if (address > romFile.length()) return;
+            romScrollBar.setValue(address); // Causes displayROMAt(address) via ChangeListener
+            romArea.selectRange(0, length);
+        } catch (IOException e) {
+            JJWUtils.printException(e, "Something went wrong while reading the ROM files length!");
+        }
     }
 
     // ADDRESS INCREMENTS PER BYTE (OR TWO HEX DIGITS)

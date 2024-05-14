@@ -1,67 +1,71 @@
 package net.arna.jojowrite.node;
 
-import javafx.event.EventHandler;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.MenuItem;
-import javafx.scene.input.KeyEvent;
+import net.arna.jojowrite.JJWUtils;
 import net.arna.jojowrite.JoJoWriteController;
 import net.arna.jojowrite.asm.Compiler;
 import org.fxmisc.richtext.CodeArea;
-import org.fxmisc.richtext.model.Paragraph;
-import org.fxmisc.richtext.model.StyleSpans;
-import org.fxmisc.richtext.model.StyleSpansBuilder;
+import org.fxmisc.richtext.LineNumberFactory;
 
-import java.util.Collection;
 import java.util.Collections;
-import java.util.function.Consumer;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
-//import org.reactfx.collection.ListModification;
-
-import static net.arna.jojowrite.TextStyles.BASIC_TEXT;
+import static net.arna.jojowrite.TextStyles.*;
 
 public class AssemblyArea extends CodeArea {
-
-    public static final String[] KEYWORDS = new String[] {
-            "noop"
-    };
-
-    private static final String KEYWORD_PATTERN = "\\b(" + String.join("|", KEYWORDS) + ")\\b";
-    private static final String PAREN_PATTERN = "\\(|\\)";
-
-    private static final Pattern PATTERN = Pattern.compile(
-            "(?<KEYWORD>" + KEYWORD_PATTERN + ")"
-                    + "|(?<PAREN>" + PAREN_PATTERN + ")"
-    );
-
     public AssemblyArea() {
         setTextInsertionStyle(Collections.singleton(BASIC_TEXT));
 
-        //setParagraphGraphicFactory(LineNumberFactory.get(this));
+        setParagraphGraphicFactory(LineNumberFactory.get(this));
         setContextMenu(new DefaultContextMenu());
 
         setOnKeyTyped(
                 event -> {
                     JoJoWriteController.getInstance().clearOutput();
+                    Compiler.clearErrors();
 
                     // getParagraphs() causes an IllegalAccessError due to some insane fucking module linking issue
-
                     String[] paragraphs = getText().split("\n");
+                    int startIndex = 0;
+                    for (int i = 0; i < paragraphs.length; i++) {
+                        String paragraph = paragraphs[i];
+                        int paraLength = paragraph.length();
+                        if (!paragraph.isEmpty()) {
+                            if (paragraph.startsWith("//")) { // Comments
+                                setStyleClass(startIndex, startIndex + paraLength, COMMENT_TEXT);
+                            } else { // Assembly
+                                String[] tokens = paragraph.split(" ");
+                                if (paragraph.length() < 9) {
+                                    Compiler.raiseError("Invalid address prefix: " + tokens[0]);
+                                } else {
+                                    String addressStr = tokens[0].substring(0, 8);
+                                    if (!JJWUtils.isHexadecimal(addressStr)) {
+                                        Compiler.raiseError("Invalid character in Hex literal");
+                                    } else {
+                                        if (Integer.valueOf(addressStr, 16) % 2 != 0) {
+                                            Compiler.raiseError("Unaligned address: " + addressStr);
+                                        } else {
+                                            setStyleClass(startIndex, startIndex + 8, ADDRESS_TEXT);
+                                            if (paragraph.charAt(8) == ':') {
+                                                String instructionStr = paragraph.substring(9);
+                                                var possible = Compiler.getPossibleInstructions(instructionStr).toList();
+                                                if (possible.size() == 1) {
+                                                    JoJoWriteController.getInstance().appendToOutput(
+                                                            Compiler.compileToHexString(possible.get(0), instructionStr) + '\n');
+                                                }
+                                                setStyleClass(startIndex + 9, startIndex + 9 + instructionStr.length(), KEYWORD_TEXT);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
 
-                    for (String paragraph : paragraphs) {
-                        var possible = Compiler.getPossibleInstructions(paragraph).toList();
-                        if (possible.size() == 1)
-                            JoJoWriteController.getInstance().appendToOutput(
-                                    Compiler.compileToHexString(possible.get(0), paragraph) + '\n'
-                            );
+                        startIndex += paraLength + 1; // Account for omitted \n
                     }
                 }
         );
     }
-
-
 
     private static class DefaultContextMenu extends ContextMenu
     {

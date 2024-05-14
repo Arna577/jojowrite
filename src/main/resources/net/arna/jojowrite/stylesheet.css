@@ -4,6 +4,9 @@
     -jjw-light-color: #222244;
     -jjw-highlight-color: #455A64;
 
+    -jjw-dark-red-color: #221111;
+    -jjw-light-red-color: #442211;
+
     -jjw-text-color-overwritten: #F96969;
     -jjw-text-color-temp: #F9F979;
     -jjw-text-color: #A9A9E9;
@@ -81,6 +84,11 @@
     -fx-background-color: -jjw-dark-color;
 }
 
+.code-area .lineno {
+    -fx-border-color: -jjw-dark-color;
+    -fx-background-color: -jjw-background-color;
+}
+
 .code-area .text {
     -fx-font-family: "Courier Prime";
     -fx-font-size: 16;
@@ -90,9 +98,32 @@
     -fx-stroke: -jjw-text-color;
 }
 
+/* Error Area */
+.error-area .content {
+    -fx-border-width: 1;
+    -fx-border-style: solid;
+    -fx-border-color: -jjw-light-red-color;
+
+    -fx-background-radius: 2 2 2 2;
+    -fx-background-color: -jjw-dark-red-color;
+}
+
+.error-area .text {
+    -fx-font-family: "Courier Prime";
+    -fx-font-size: 16;
+}
+
 /* Assembly */
-.keyword {
-    -fx-text-fill: -jjw-highlight-color;
+.keyword-text {
+    -fx-fill: #AA33CC;
+}
+
+.address-text {
+    -fx-fill: -jjw-highlight-text-color;
+}
+
+.comment-text {
+    -fx-fill: #337799;
 }
 
 /* Scroll Pane */

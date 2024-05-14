@@ -1,17 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <?import javafx.scene.control.*?>
-<?import javafx.scene.layout.BorderPane?>
-<?import org.fxmisc.flowless.VirtualizedScrollPane?>
-<?import org.fxmisc.richtext.CodeArea?>
-<?import org.fxmisc.richtext.StyleClassedTextArea?>
-
-<?import javafx.scene.layout.VBox?>
-<?import javafx.scene.layout.StackPane?>
-<?import javafx.scene.layout.HBox?>
-<?import net.arna.jojowrite.node.ROMTextArea?>
-<?import javafx.scene.control.skin.SplitPaneSkin.Content?>
+<?import javafx.scene.layout.*?>
 <?import net.arna.jojowrite.node.AssemblyArea?>
+<?import net.arna.jojowrite.node.ROMTextArea?>
+<?import org.fxmisc.flowless.VirtualizedScrollPane?>
+<?import org.fxmisc.richtext.StyleClassedTextArea?>
 <BorderPane xmlns="http://javafx.com/javafx/8.0.111" xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="net.arna.jojowrite.JoJoWriteController" styleClass="main">
     <top>
@@ -63,11 +57,17 @@
         <Label fx:id="selectedFileDisplay"/>
     </bottom>
 
+    <left>
+        <ScrollPane prefWidth="240" fx:id="errorScrollPane" fitToWidth="true" styleClass="scroll-pane">
+            <TextArea fx:id="errorArea" editable="false" wrapText="true" styleClass="error-area"/>
+        </ScrollPane>
+    </left>
+
     <center>
         <StackPane minWidth="320">
             <VirtualizedScrollPane fx:id="assemblyScrollPane" styleClass="scroll-pane">
                 <content>
-                    <AssemblyArea fx:id="input" styleClass="code-area"/>
+                    <AssemblyArea fx:id="assemblyArea" styleClass="code-area"/>
                 </content>
             </VirtualizedScrollPane>
 

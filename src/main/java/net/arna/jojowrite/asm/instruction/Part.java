@@ -1,6 +1,7 @@
 package net.arna.jojowrite.asm.instruction;
 
 import net.arna.jojowrite.JJWUtils;
+import net.arna.jojowrite.asm.Compiler;
 
 import java.util.HashMap;
 import java.util.List;
@@ -9,12 +10,13 @@ import java.util.Optional;
 
 public final class Part {
     public enum ArgumentType {
+        LABEL,
+        // disp
         DISPLACEMENT,
         // #imm
         IMMEDIATE,
         // Rn
         REGISTER,
-        // @Rn
     }
 
     public enum PartType {
@@ -72,8 +74,9 @@ public final class Part {
     // Can't parse String by ref
     public MatchData matches(String in, DisplacementMutation dispMutation) {
         if (type == PartType.STATIC) {
-            if (in.startsWith(segment))
+            if (in.startsWith(segment)) {
                 return new MatchData(true, in.substring(segment.length()), Optional.empty());
+            }  //else return raiseCompilerError("Invalid instruction, expected: " + segment);
         }
 
         Map<Fragment, String> out = new HashMap<>();
@@ -95,19 +98,28 @@ public final class Part {
                         }
                     } else {
                         if (in.length() >= fragSize * 2) { // Possibly 2 bytes
+                            String displacementStr = "";
                             for (int i = 0; i < fragSize; i++) {
-                                //todo: fix this faulty logic (its segmented between iterations when it shouldn't be)
                                 String byteStr = in.substring(i * 2, i * 2 + 2);
                                 if (!JJWUtils.isHexadecimal(byteStr)) {
                                     return raiseCompilerError("Invalid character in Hex literal");
                                 }
-                                int dispValue = Integer.valueOf(byteStr, 16);
-                                if (dispValue % dispMutation.getModifier() != 0) {
-                                    return raiseCompilerError("Invalid displacement");
-                                }
-                                dispValue /= dispMutation.getModifier();
-                                out.put(fragments.get(i), String.valueOf(dispValue));
+                                displacementStr += byteStr;
                             }
+
+                            int dispValue = Integer.valueOf(displacementStr, 16);
+                            if (dispValue % dispMutation.getModifier() != 0) {
+                                return raiseCompilerError("Invalid displacement, should be a multiple of " + dispMutation.getModifier());
+                            }
+                            dispValue /= dispMutation.getModifier();
+                            if (dispValue > 0xFF) {
+                                return raiseCompilerError("Displacement value too large");
+                            }
+                            String displacementValueStr = Integer.toString(dispValue, 16);
+                            for (int i = 0; i < fragSize; i++) {
+                                out.put(fragments.get(i), displacementValueStr.substring(i, i + 1));
+                            }
+
                             return new MatchData(true, in.substring(fragSize * 2), Optional.of(out));
                         } else {
                             return raiseCompilerError("Incorrect displacement length");
@@ -127,7 +139,11 @@ public final class Part {
                                 out.put(fragments.get(i), digit);
                             }
                             return new MatchData(true, in.substring(1 + fragSize), Optional.of(out));
+                        } else {
+                            return raiseCompilerError("Incorrect immediate value length");
                         }
+                    } else {
+                        return raiseCompilerError("Expected $ at start of immediate value");
                     }
                 }
 
@@ -150,9 +166,11 @@ public final class Part {
                                 }
                                 out.put(fragments.get(0), JJWUtils.HEX_DIGITS.substring(registerId, registerId + 1));
                                 return new MatchData(true, in.substring(cutoff), Optional.of(out));
+                            } else {
+                                return raiseCompilerError("Invalid character in Decimal literal");
                             }
                         }
-                    }
+                    } //else return raiseCompilerError("Expected R at start of register reference");
                 }
             }
         }
@@ -162,7 +180,7 @@ public final class Part {
 
     private static final MatchData fail = new MatchData(false, null, null);
     public MatchData raiseCompilerError(String error) {
-        //todo: raise compiler error
+        Compiler.raiseError(error);
         return fail;
     }
 
@@ -178,6 +196,7 @@ public final class Part {
             switch (argumentType) {
                 case IMMEDIATE -> out.append("$imm");
                 case DISPLACEMENT -> out.append("disp");
+                case LABEL -> out.append("label");
                 case REGISTER -> {
                     out.append("R");
                     out.append(fragments.get(0).asSingleChar());
@@ -192,5 +211,9 @@ public final class Part {
 
     public boolean isVariable() {
         return type == PartType.VARIABLE;
+    }
+
+    public ArgumentType getArgumentType() {
+        return this.argumentType;
     }
 }
