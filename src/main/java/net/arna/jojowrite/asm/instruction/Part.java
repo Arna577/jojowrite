@@ -116,6 +116,9 @@ public final class Part {
                                 return raiseCompilerError("Displacement value too large");
                             }
                             String displacementValueStr = Integer.toString(dispValue, 16);
+                            if (fragSize > 1) { // Append leading zeros
+                                displacementValueStr = ("0".repeat(fragSize) + displacementValueStr).substring(displacementValueStr.length());
+                            }
                             for (int i = 0; i < fragSize; i++) {
                                 out.put(fragments.get(i), displacementValueStr.substring(i, i + 1));
                             }
