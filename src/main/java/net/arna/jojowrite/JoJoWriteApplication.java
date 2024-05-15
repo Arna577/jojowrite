@@ -13,6 +13,7 @@ import org.fxmisc.richtext.CodeArea;
 import java.io.File;
 import java.io.IOException;
 import java.io.InvalidObjectException;
+import java.net.URL;
 
 public class JoJoWriteApplication extends Application {
     private static Stage stage;
@@ -21,14 +22,19 @@ public class JoJoWriteApplication extends Application {
     private static FileChooser assemblyFileChooser;
     private static FileChooser overwriteFileChooser;
 
+    public static String STYLESHEET;
+    public static String DIALOG_STYLESHEET;
+
     @Override
     public void start(final Stage stage) throws IOException {
         // Initialization
+        STYLESHEET = JoJoWriteApplication.class.getResource("stylesheet.css").toExternalForm();
+        DIALOG_STYLESHEET = JoJoWriteApplication.class.getResource("dialogs.css").toExternalForm();
+
         FXMLLoader fxmlLoader = new FXMLLoader(JoJoWriteApplication.class.getResource("main-view.fxml"));
         Scene scene = new Scene(fxmlLoader.load(), 1280, 720);
 
-        String css = JoJoWriteApplication.class.getResource("stylesheet.css").toExternalForm();
-        scene.getStylesheets().add(css);
+        scene.getStylesheets().add(STYLESHEET);
 
         Font.loadFont(JoJoWriteApplication.class.getResourceAsStream("fonts/CourierPrime-Regular.ttf"), 16);
 

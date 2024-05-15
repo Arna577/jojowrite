@@ -42,6 +42,18 @@
     -fx-text-fill: -jjw-highlight-text-color;
 }
 
+/* Overwrite Field
+.overwrite-field {
+    -fx-background-color: -jjw-dark-color;
+}
+
+.overwrite-field .text {
+    -fx-font-size: 16;
+    -fx-font-family: "Courier Prime";
+    -fx-text-fill: -jjw-text-color;
+}
+*/
+
 /* Buttons */
 .button {
     -fx-border-width: 1;
@@ -130,6 +142,10 @@
 /* Scroll Pane */
 .scroll-pane {
     -fx-background-color: -jjw-dark-color;
+}
+
+.scroll-pane > .corner {
+   -fx-background-color: -jjw-dark-color;
 }
 
 .scroll-pane > .viewport {

@@ -1,0 +1,59 @@
+* {
+    -jjw-background-color: #000011;
+    -jjw-dark-color: #111122;
+    -jjw-light-color: #222244;
+    -jjw-highlight-color: #455A64;
+
+    -jjw-dark-red-color: #221111;
+    -jjw-light-red-color: #442211;
+
+    -jjw-text-color-overwritten: #F96969;
+    -jjw-text-color-temp: #F9F979;
+    -jjw-text-color: #A9A9E9;
+    -jjw-highlight-text-color: #FFFFFF;
+
+    -fx-text-fill: -jjw-text-color;
+}
+
+/* Dialog Panel */
+.help-dialog {
+    -fx-border-width: 1;
+    -fx-border-color: -jjw-light-color;
+
+    -fx-background-radius: 2 2 2 2;
+    -fx-background-color: -jjw-dark-color;
+}
+
+.help-dialog:header *.header-panel {
+    -fx-background-color: -jjw-background-color;
+}
+
+.help-dialog:header *.header-panel *.label {
+    -fx-font-family: "Courier Prime";
+    -fx-font-size: 16;
+    -fx-fill: -jjw-text-color;
+}
+
+/* Buttons */
+.button {
+    -fx-border-width: 1;
+    -fx-border-color: transparent;
+
+    -fx-background-radius: 2 2 2 2;
+    -fx-background-color: -jjw-light-color;
+
+    -fx-font-family: "Courier Prime";
+    -fx-font-size: 16;
+    -fx-text-fill: -jjw-text-color;
+}
+
+.button:hover {
+    -fx-background-radius: 3 3 3 3;
+    -fx-background-color: -jjw-highlight-color;
+}
+
+.button:hover,
+.button:focused,
+.button:showing {
+    -fx-text-fill: -jjw-highlight-text-color;
+}

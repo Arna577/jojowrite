@@ -1,25 +1,28 @@
 package net.arna.jojowrite;
 
+import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
-import javafx.geometry.Bounds;
 import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
-import javafx.scene.layout.VBox;
 import javafx.stage.StageStyle;
 import net.arna.jojowrite.JJWUtils.FileType;
 import net.arna.jojowrite.asm.Compiler;
 import net.arna.jojowrite.node.AssemblyArea;
 import net.arna.jojowrite.node.Overwrite;
+import net.arna.jojowrite.node.OverwriteBox;
 import net.arna.jojowrite.node.ROMTextArea;
 import org.fxmisc.flowless.VirtualizedScrollPane;
 import org.fxmisc.richtext.StyleClassedTextArea;
 
 import java.io.*;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.ResourceBundle;
 import java.util.Set;
+import java.util.concurrent.Executors;
 
 import static net.arna.jojowrite.TextStyles.BASIC_TEXT;
 import static net.arna.jojowrite.TextStyles.OVERWRITTEN_TEXT;
@@ -48,7 +51,7 @@ public class JoJoWriteController implements Initializable {
     @FXML
     public ScrollPane overwriteScrollPane;
         @FXML
-        public VBox overwrites;
+        public OverwriteBox overwrites;
     @FXML
     public HBox overwriteControls;
 
@@ -94,19 +97,7 @@ public class JoJoWriteController implements Initializable {
             }
         );
 
-        overwriteScrollPane.vvalueProperty().addListener(
-                (observable, oldValue, newValue) -> {
-                    Bounds paneBounds = overwriteScrollPane.getLayoutBounds();
-
-                    for (Node node : overwrites.getChildren()) {
-                        if (node instanceof Overwrite overwrite) {
-                            overwrite.setVisible(paneBounds.intersects(overwrite.getLayoutBounds()));
-                        }
-                    }
-                }
-        );
-
-        //todo: culling of overwrites the user can't see
+        overwrites.assignParentPane(overwriteScrollPane);
 
         Compiler.setErrorOutputArea(errorArea);
 
@@ -144,12 +135,14 @@ public class JoJoWriteController implements Initializable {
         try ( FileWriter outWriter = new FileWriter(files.get(type)) ) {
             switch (type) {
                 case OVERWRITE -> {
-                    for (int i = overwrites.getChildren().size() - 1; i >= 0; i--)
-                        if (overwrites.getChildren().get(i) instanceof Overwrite overwrite)
+                    for (int i = overwrites.size() - 1; i >= 0; i--)
+                        if (overwrites.get(i) instanceof Overwrite overwrite)
                             outWriter.append(overwrite.toString());
                 }
 
-                case ASSEMBLY, PATCH -> outWriter.append(assemblyArea.getText());
+                case ASSEMBLY -> outWriter.append(assemblyArea.getText());
+
+                case PATCH -> throw new UnsupportedOperationException("Not implemented");
 
                 case ROM -> System.out.println("Attempted to write to ROM file! Writing to ROMs should be done via patching.");
             }
@@ -260,53 +253,47 @@ public class JoJoWriteController implements Initializable {
     /** OVERWRITE **/
     public void newOverwriteFile() {
         if (files.get(FileType.OVERWRITE) != newFile(FileType.OVERWRITE)) // Selected new file
-            overwrites.getChildren().clear();
+            overwrites.clear();
         setOpenType(FileType.OVERWRITE);
     }
 
+    private static final int NUM_THREADS = 4; // Number of threads
     public void openOverwriteFile() {
         if (selectOverwriteFile() == null)
             return;
 
         setOpenType(FileType.OVERWRITE);
 
-        //TODO: figure out java destructors
-        overwrites.getChildren().removeIf(node -> node instanceof Overwrite);
+        //TODO: figure out if this leaks memory
+        overwrites.getChildren().removeAll();
 
-        try
-        {
-            FileReader reader = new FileReader( files.get(FileType.OVERWRITE) );
+        long ns = System.currentTimeMillis();
+        try {
+            FileReader reader = new FileReader(files.get(FileType.OVERWRITE));
             BufferedReader br = new BufferedReader(reader);
-            boolean readingOverwrite = true;
-            String line, overwriteText = "";
+            String line;
             while ((line = br.readLine()) != null) {
-                if (readingOverwrite) {
-                    overwriteText = line;
-                } else {
-                    overwriteText += '\n';
-                    overwriteText += line;
-                    Overwrite.fromCharSequence(overwrites, overwriteText);
-                }
-
-                readingOverwrite = !readingOverwrite;
+                Overwrite.fromCharSequence(line + '\n' + br.readLine()).assignOverwriteBox(overwrites);
             }
             br.close();
 
             romArea.requestFocus();
             refreshOverwrites();
+            overwrites.updateVisibility();
+        } catch (Exception e) {
+            JJWUtils.printException(e, "An error occurred while opening overwrite file.");
         }
-        catch (Exception e) {
-            JJWUtils.printException(e, "An error occurred while opening assembly file.");
-        }
+
+        System.out.println("COMPLETE; took " + (System.currentTimeMillis() - ns) + "ms");
 
         /*
         Random random = new Random();
         for (int i = 0; i < 2048; i++) {
-            var ovr = new Overwrite(overwrites);
+            Overwrite ovr = new Overwrite(overwrites);
             ovr.setAddressText(Integer.toHexString(random.nextInt(0x07fffff)));
             String testText = Long.toHexString(random.nextLong(0x7fffffffffffffffL));
             if (testText.length() % 2 == 1)
-                testText = testText.substring(1);
+                testText += '0';
             ovr.setOverwriteText(testText);
         }
 
@@ -315,7 +302,7 @@ public class JoJoWriteController implements Initializable {
             ovr.setAddressText(Integer.toHexString(i));
             ovr.setOverwriteText("FF");
         }
-         */
+        */
     }
 
     public File selectOverwriteFile() {
@@ -393,6 +380,7 @@ public class JoJoWriteController implements Initializable {
 
     public void newOverwrite() {
         new Overwrite(overwrites);
+        overwrites.updateVisibility();
     }
 
     public void showOverwritesAsLUA() {
@@ -478,13 +466,8 @@ public class JoJoWriteController implements Initializable {
         romArea.resetUndoManager();
     }
 
-    private static final String dialogPaneStyle = "-fx-background-color: #000011;" +
-            " -fx-font-family: \"Courier Prime\";" +
-            " -fx-font-size: 10;" +
-            " -fx-text-fill: #A9A9E9;" +
-            " -fx-text-color: #A9A9E9;";
     public void showOverwriteHelp() {
-        var dialog = new Alert(Alert.AlertType.INFORMATION);
+        var dialog = createStyledAlert(Alert.AlertType.INFORMATION);
         dialog.setTitle("Overwrite Info");
         dialog.setHeaderText(
                 """
@@ -504,11 +487,14 @@ public class JoJoWriteController implements Initializable {
                         [ADDRESS]:[DATA]\\n[COMMENT]\\n"""
         );
         dialog.initStyle(StageStyle.UNDECORATED);
-        dialog.getDialogPane().setStyle(dialogPaneStyle);
-        dialog.getDialogPane().getChildren().forEach(
-                node -> node.setStyle(dialogPaneStyle)
-        );
+        dialog.getDialogPane().getStyleClass().add("help-dialog");
         dialog.showAndWait();
+    }
+
+    private Alert createStyledAlert(Alert.AlertType type) {
+        Alert alert = new Alert(type);
+        alert.getDialogPane().getStylesheets().add(JoJoWriteApplication.DIALOG_STYLESHEET);
+        return alert;
     }
 
     public void clearOutput() {

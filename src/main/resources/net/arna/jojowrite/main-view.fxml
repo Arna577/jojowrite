@@ -6,6 +6,7 @@
 <?import net.arna.jojowrite.node.ROMTextArea?>
 <?import org.fxmisc.flowless.VirtualizedScrollPane?>
 <?import org.fxmisc.richtext.StyleClassedTextArea?>
+<?import net.arna.jojowrite.node.OverwriteBox?>
 <BorderPane xmlns="http://javafx.com/javafx/8.0.111" xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="net.arna.jojowrite.JoJoWriteController" styleClass="main">
     <top>
@@ -89,9 +90,9 @@
                     <StyleClassedTextArea fx:id="output" editable="false" styleClass="code-area" />
                 </content>
             </VirtualizedScrollPane>
-            <ScrollPane fx:id="overwriteScrollPane" fitToWidth="true" visible="false" styleClass="scroll-pane">
+            <ScrollPane fx:id="overwriteScrollPane" visible="false" styleClass="scroll-pane">
                 <content>
-                    <VBox fx:id="overwrites"/>
+                    <OverwriteBox fx:id="overwrites" minWidth="280"/>
                 </content>
             </ScrollPane>
         </StackPane>

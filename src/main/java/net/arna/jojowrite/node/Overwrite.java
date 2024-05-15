@@ -1,10 +1,10 @@
 package net.arna.jojowrite.node;
 
 import javafx.scene.control.Button;
-import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.scene.text.Text;
 import net.arna.jojowrite.JoJoWriteController;
 
 import java.util.ArrayList;
@@ -41,7 +41,7 @@ public class Overwrite extends VBox {
      * Contains an unbounded string of hex digits, which are coerced into pairs.
      * Updating this fields text will cause a {@link Overwrite#separateBytes()}
      */
-    private final HexTextField overwriteField;
+    private final OverwriteField overwriteField;
     /**
      * May contain most characters, used by the user to annotate what this Overwrite does.
      */
@@ -53,65 +53,32 @@ public class Overwrite extends VBox {
      */
     private final ArrayList<String> byteMap = new ArrayList<>();
 
-    private static final double OVERWRITE_MIN_WIDTH = 240.0, OVERWRITE_MAX_WIDTH = 640.0;
+    public static final double OVERWRITE_MIN_WIDTH = 240.0, OVERWRITE_MAX_WIDTH = 640.0;
 
     public Overwrite() {
-        getStyleClass().add("code-area");
-
         overwriteAndOptions = new HBox();
 
         addressField = new HexTextField("00", 8);
         addressField.getStyleClass().add("address");
         addressField.setPromptText("Address");
-        addressField.setMinWidth(100.0);
-        addressField.setPrefWidth(100.0);
-
+        addressField.setMaxWidth(98.0);
         addressField.setOnKeyTyped(keyEvent -> separateBytes());
 
-        Label addressSeparator = new Label(":");
-
-        overwriteField = new HexTextField();
-        overwriteField.getStyleClass().add("code-area");
-        overwriteField.setPromptText("Overwrite Bytes");
+        overwriteField = new OverwriteField(this);
+        overwriteField.getStyleClass().add("overwrite-field");
+        overwriteField.setPromptText(new Text("Overwrite Bytes"));
         overwriteField.setMinWidth(OVERWRITE_MIN_WIDTH);
         overwriteField.setMaxWidth(OVERWRITE_MAX_WIDTH);
 
-        overwriteField.setOnKeyTyped(
-                keyEvent -> {
-                    int length = overwriteField.getLength();
-
-                    // Adjust size to fit
-                    double newLength = length * overwriteField.getFont().getSize() / 1.33;
-                    if (newLength < OVERWRITE_MIN_WIDTH) newLength = OVERWRITE_MIN_WIDTH;
-                    if (newLength > OVERWRITE_MAX_WIDTH) newLength = OVERWRITE_MAX_WIDTH;
-                    overwriteField.setPrefWidth(newLength);
-
-                    // Make sure bytes are in pairs
-                    if (length % 2 == 1) {
-                        if (keyEvent.getCharacter().equals("\b")) {
-                            overwriteField.deletePreviousChar();
-                        } else {
-                            overwriteField.insertText(overwriteField.getSelection().getEnd(), "0");
-                            overwriteField.selectBackward();
-                        }
-                    }
-
-                    separateBytes();
-                    JoJoWriteController.getInstance().refreshOverwrites();
-                }
-        );
-
         showInROM = new Button("Show in ROM");
-        showInROM.setMinWidth(130.0);
-        showInROM.setOnAction(event -> JoJoWriteController.getInstance().showInROM(
-                getAddress(), overwriteField.getLength()
-        ));
+        //showInROM.setMinWidth(130.0);
+        showInROM.setOnAction(event -> JoJoWriteController.getInstance().showInROM(getAddress(), overwriteField.getLength()));
 
         delete = new Button("Delete");
         delete.getStyleClass().add("delete-button");
-        delete.setMinWidth(85.0);
+        //delete.setMinWidth(85.0);
 
-        overwriteAndOptions.getChildren().addAll(addressField, addressSeparator, overwriteField, showInROM, delete);
+        overwriteAndOptions.getChildren().addAll(addressField, overwriteField, showInROM, delete);
 
         commentField = new TextField();
         commentField.getStyleClass().add("code-area");
@@ -122,23 +89,26 @@ public class Overwrite extends VBox {
 
     /**
      * Constructs an Overwrite and assigns it to:
-     * @param overwrites a container {@link VBox}
+     * @param overwrites a container {@link OverwriteBox}
      */
-    public Overwrite(VBox overwrites) {
+    public Overwrite(OverwriteBox overwrites) {
         this();
-        delete.setOnAction(event -> {
-                    overwrites.getChildren().remove(this);
-                    JoJoWriteController.getInstance().refreshOverwrites();
-                }
-        );
-        overwrites.getChildren().add(0, this);
+        assignOverwriteBox(overwrites);
     }
 
-    private void separateBytes() {
+    public void assignOverwriteBox(OverwriteBox overwrites) {
+        delete.setOnAction(event -> overwrites.remove(this));
+
+        overwrites.add(0, this);
+    }
+
+    void separateBytes() {
         //System.out.println("Separating bytes...");
-        byteMap.clear();
         String byteText = getOverwriteText();
-        for (int i = 0; i < byteText.length(); i += 2) {
+        int byteTextLength = byteText.length();
+        if (byteTextLength % 2 != 0) throw new IllegalStateException("Overwrite field with uneven character count; " + overwriteField);
+        byteMap.clear();
+        for (int i = 0; i < byteTextLength; i += 2) {
             // 2 digits represent 1 byte. DisplayROMAt() doubles the address to get the correct placement.
             byteMap.add(byteText.substring(i, i + 2));
         }
@@ -150,7 +120,7 @@ public class Overwrite extends VBox {
 
     public int getAddress() {
         if (addressField.getLength() == 0) return 0;
-        return Integer.valueOf(addressField.getText(), 16);
+        return Integer.parseUnsignedInt(addressField.getText(), 16);
     }
 
     public void setAddressText(String text) {
@@ -177,8 +147,8 @@ public class Overwrite extends VBox {
     }
 
     // This COULD be generalized into a map of rules, but that's pointless because this will be the only String reading of this type.
-    public static Overwrite fromCharSequence(VBox overwrites, CharSequence seq) throws IllegalStateException {
-        Overwrite overwrite = new Overwrite(overwrites);
+    public static Overwrite fromCharSequence(CharSequence seq) throws IllegalStateException {
+        Overwrite overwrite = new Overwrite();
         StringBuilder addressText = new StringBuilder();
         StringBuilder overwriteText = new StringBuilder();
         StringBuilder commentText = new StringBuilder();
@@ -213,6 +183,6 @@ public class Overwrite extends VBox {
      */
     public void focus() {
         overwriteField.requestFocus();
-        overwriteField.positionCaret(overwriteField.getLength());
+        overwriteField.displaceCaret(overwriteField.getLength());
     }
 }
