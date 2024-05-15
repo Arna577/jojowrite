@@ -19,26 +19,38 @@ public class Format {
         variableParts = parts.stream().filter(Part::isVariable).mapToInt(e -> 1).sum();
     }
 
-    public boolean matches(String in) {
+    /**
+     * Self-explanatory. Provides the Parts with:
+     * @param format a reference to this Format
+     * @param displacementMutation its DisplacementMutation
+     * @param address the address of the instruction being compiled.
+     */
+    public record CompilationContext(Format format, DisplacementMutation displacementMutation, String address) {}
+
+    public boolean matches(String addressStr, String instructionStr) {
+        CompilationContext ctx = new CompilationContext(this, dispMutation, addressStr);
+
         for (Part part : parts) {
             // Procedurally consumes the string as the pattern check continues.
-            Part.MatchData matchData = part.matches(in, dispMutation);
+            Part.MatchData matchData = part.matches(instructionStr, ctx);
             if (!matchData.match()) return false;
-            in = matchData.remaining();
-            if (in.equals("")) return true; // Partial match
+            instructionStr = matchData.remaining();
+            if (instructionStr.equals("")) return true; // Partial match
         }
         return true; // Full match
     }
 
-    public Map<Fragment, String> mapFragments(String in) {
+    public Map<Fragment, String> mapFragments(String addressStr, String instructionStr) {
+        CompilationContext ctx = new CompilationContext(this, dispMutation, addressStr);
         Map<Fragment, String> out = new HashMap<>();
+
         for (Part part : parts) {
             // Procedurally consumes the string as the pattern check continues.
-            Part.MatchData matchData = part.matches(in, dispMutation);
+            Part.MatchData matchData = part.matches(instructionStr, ctx);
             if (!matchData.match()) throw new IllegalStateException("Trying to mapFragments for non-matching instruction!");
-            in = matchData.remaining();
+            instructionStr = matchData.remaining();
             matchData.fragmentHexDigitMap().ifPresent(out::putAll);
-            if (in.equals("")) return out; // Partial match
+            if (instructionStr.equals("")) return out; // Partial match
         }
         return out;
     }

@@ -108,9 +108,10 @@
     -fx-background-color: -jjw-dark-red-color;
 }
 
-.error-area .text {
+.error-area {
     -fx-font-family: "Courier Prime";
-    -fx-font-size: 16;
+    -fx-font-size: 14;
+    -fx-text-fill: -jjw-text-color-overwritten;
 }
 
 /* Assembly */

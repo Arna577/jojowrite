@@ -28,7 +28,6 @@ import java.util.ArrayList;
  *  help menus
  *  ROMTextArea width snapping
  *  patch files
- *  culling of overwrites the user can't see
  *  select overwrite from ROM red text
  */
 public class Overwrite extends VBox {

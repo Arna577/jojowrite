@@ -2,6 +2,7 @@ package net.arna.jojowrite;
 
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
+import javafx.geometry.Bounds;
 import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
@@ -92,6 +93,20 @@ public class JoJoWriteController implements Initializable {
                 }
             }
         );
+
+        overwriteScrollPane.vvalueProperty().addListener(
+                (observable, oldValue, newValue) -> {
+                    Bounds paneBounds = overwriteScrollPane.getLayoutBounds();
+
+                    for (Node node : overwrites.getChildren()) {
+                        if (node instanceof Overwrite overwrite) {
+                            overwrite.setVisible(paneBounds.intersects(overwrite.getLayoutBounds()));
+                        }
+                    }
+                }
+        );
+
+        //todo: culling of overwrites the user can't see
 
         Compiler.setErrorOutputArea(errorArea);
 
@@ -335,14 +350,17 @@ public class JoJoWriteController implements Initializable {
             String line;
             while ((line = br.readLine()) != null) {
                 assemblyArea.appendText(line);
+                assemblyArea.appendText("\n");
             }
             br.close();
-            assemblyArea.requestFocus();
 
             if (assemblyArea.getText().isEmpty()) {
-                assemblyArea.append("//Example comment & instruction\n", BASIC_TEXT);
-                assemblyArea.append("06280000:noop", BASIC_TEXT);
+                assemblyArea.appendText("//Example comment & instruction\n");
+                assemblyArea.appendText("06280000:NOP");
             }
+
+            assemblyArea.requestFocus();
+            assemblyArea.update();
         }
         catch (Exception e) {
             JJWUtils.printException(e, "An error occurred while opening assembly file.");

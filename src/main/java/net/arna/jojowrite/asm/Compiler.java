@@ -17,14 +17,14 @@ public class Compiler {
     private static final List<String> errors = new ArrayList<>();
     private static TextArea errorOutputArea;
 
-    public static Stream<Instruction> getPossibleInstructions(String in) {
+    public static Stream<Instruction> getPossibleInstructions(String addressStr, String instructionStr) {
         return instructions.stream().filter(
-                instruction -> instruction.getFormat().matches(in)
+                instruction -> instruction.getFormat().matches(addressStr, instructionStr)
         );
     }
 
-    public static String compileToHexString(Instruction instruction, String in) {
-        return instruction.compileToHexString(instruction.getFormat().mapFragments(in));
+    public static String compileToHexString(Instruction instruction, String addressStr, String instructionStr) {
+        return instruction.compileToHexString(instruction.getFormat().mapFragments(addressStr, instructionStr));
     }
 
     public static void registerInstruction(Instruction i) throws IllegalStateException {
@@ -40,9 +40,7 @@ public class Compiler {
 
     public static void raiseError(String err) {
         errors.add(err);
-        errors.forEach(
-                error -> errorOutputArea.appendText(error + '\n')
-        );
+        errorOutputArea.appendText(errors.size() + ". - " + err + '\n');
     }
 
     public static void setErrorOutputArea(TextArea errorOutputArea) {
@@ -90,7 +88,7 @@ public class Compiler {
             new Keyword("Rn", "n", Part.ArgumentType.REGISTER),
             new Keyword("imm", "i", Part.ArgumentType.IMMEDIATE),
             new Keyword("disp", "d", Part.ArgumentType.DISPLACEMENT),
-            new Keyword("label", "d", Part.ArgumentType.DISPLACEMENT)
+            new Keyword("label", "d", Part.ArgumentType.LABEL)
     );
 
     public static void loadAssemblyDefinitions(InputStream asmdef) {
@@ -135,7 +133,7 @@ public class Compiler {
                     nnnn: Destination register
                     iiii: Immediate data
                     dddd: Displacement
-                    todo: label
+                    label: Pointer
                      */
                     StringBuilder partStr = new StringBuilder();
                     while (!instructionStr.isEmpty()) {

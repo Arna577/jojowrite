@@ -58,7 +58,7 @@
     </bottom>
 
     <left>
-        <ScrollPane prefWidth="240" fx:id="errorScrollPane" fitToWidth="true" styleClass="scroll-pane">
+        <ScrollPane prefWidth="240" fx:id="errorScrollPane" fitToWidth="true" fitToHeight="true" styleClass="scroll-pane">
             <TextArea fx:id="errorArea" editable="false" wrapText="true" styleClass="error-area"/>
         </ScrollPane>
     </left>

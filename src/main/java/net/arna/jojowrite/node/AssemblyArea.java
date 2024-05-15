@@ -24,47 +24,67 @@ public class AssemblyArea extends CodeArea {
                     JoJoWriteController.getInstance().clearOutput();
                     Compiler.clearErrors();
 
-                    // getParagraphs() causes an IllegalAccessError due to some insane fucking module linking issue
-                    String[] paragraphs = getText().split("\n");
-                    int startIndex = 0;
-                    for (int i = 0; i < paragraphs.length; i++) {
-                        String paragraph = paragraphs[i];
-                        int paraLength = paragraph.length();
-                        if (!paragraph.isEmpty()) {
-                            if (paragraph.startsWith("//")) { // Comments
-                                setStyleClass(startIndex, startIndex + paraLength, COMMENT_TEXT);
-                            } else { // Assembly
-                                String[] tokens = paragraph.split(" ");
-                                if (paragraph.length() < 9) {
-                                    Compiler.raiseError("Invalid address prefix: " + tokens[0]);
-                                } else {
-                                    String addressStr = tokens[0].substring(0, 8);
-                                    if (!JJWUtils.isHexadecimal(addressStr)) {
-                                        Compiler.raiseError("Invalid character in Hex literal");
-                                    } else {
-                                        if (Integer.valueOf(addressStr, 16) % 2 != 0) {
-                                            Compiler.raiseError("Unaligned address: " + addressStr);
-                                        } else {
-                                            setStyleClass(startIndex, startIndex + 8, ADDRESS_TEXT);
-                                            if (paragraph.charAt(8) == ':') {
-                                                String instructionStr = paragraph.substring(9);
-                                                var possible = Compiler.getPossibleInstructions(instructionStr).toList();
-                                                if (possible.size() == 1) {
-                                                    JoJoWriteController.getInstance().appendToOutput(
-                                                            Compiler.compileToHexString(possible.get(0), instructionStr) + '\n');
-                                                }
-                                                setStyleClass(startIndex + 9, startIndex + 9 + instructionStr.length(), KEYWORD_TEXT);
-                                            }
-                                        }
-                                    }
+                    if (event.getCharacter().equals("\r") || event.getCharacter().equals("\n")) {
+                        int paragraphID = getCurrentParagraph();
+                        if (--paragraphID > 0) {
+                            String lastParagraph = getText(paragraphID);
+                            if (lastParagraph.length() >= 8) {
+                                String address = lastParagraph.substring(0, 8);
+                                if (JJWUtils.isHexadecimal(address)) {
+                                    int lastAddress = Integer.valueOf(address, 16);
+                                    String nextAddress = Integer.toString(lastAddress + 2, 16);
+                                    nextAddress = ("00000000" + nextAddress).substring(nextAddress.length());
+                                    insert(getCaretPosition(), nextAddress + ':', BASIC_TEXT);
                                 }
                             }
                         }
-
-                        startIndex += paraLength + 1; // Account for omitted \n
                     }
+
+                    update();
                 }
         );
+    }
+
+    public void update() {
+        // getParagraphs() causes an IllegalAccessError due to some insane fucking module linking issue
+        String[] paragraphs = getText().split("\n");
+        int startIndex = 0;
+        for (String paragraph : paragraphs) {
+            int paraLength = paragraph.length();
+            if (!paragraph.isEmpty()) {
+                if (paragraph.startsWith("//")) { // Comments
+                    setStyleClass(startIndex, startIndex + paraLength, COMMENT_TEXT);
+                } else { // Assembly
+                    String[] tokens = paragraph.split(" ");
+                    if (paragraph.length() < 9) {
+                        Compiler.raiseError("Invalid address prefix: " + tokens[0]);
+                    } else {
+                        String addressStr = tokens[0].substring(0, 8);
+                        if (!JJWUtils.isHexadecimal(addressStr)) {
+                            Compiler.raiseError("Invalid character in Hex literal");
+                        } else {
+                            if (Integer.valueOf(addressStr, 16) % 2 != 0) {
+                                Compiler.raiseError("Unaligned address: " + addressStr);
+                            } else {
+                                setStyleClass(startIndex, startIndex + 8, ADDRESS_TEXT);
+                                if (paragraph.charAt(8) == ':') {
+                                    String instructionStr = paragraph.substring(9);
+                                    var possible = Compiler.getPossibleInstructions(addressStr, instructionStr).toList();
+                                    if (possible.size() == 1) {
+                                        JoJoWriteController.getInstance().appendToOutput(
+                                                Compiler.compileToHexString(possible.get(0), addressStr, instructionStr) + '\n');
+                                    }
+                                    setStyleClass(startIndex + 9, startIndex + 9 + instructionStr.length(), KEYWORD_TEXT);
+                                    setStyleClass(startIndex + 8, startIndex + 8, BASIC_TEXT);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            startIndex += paraLength + 1; // Account for omitted \n
+        }
     }
 
     private static class DefaultContextMenu extends ContextMenu

@@ -110,11 +110,18 @@ SHLL8 Rn 0100nnnn00011000 Rn<<8 → Rn 1 —
 SHLR8 Rn 0100nnnn00011001 Rn>>8 → Rn 1 —
 SHLL16 Rn 0100nnnn00101000 Rn<<16 → Rn 1 —
 SHLR16 Rn 0100nnnn00101001 Rn>>16 → Rn 1 —
-// TODO: Branch Instructions
-
-
-
-
+// Branch Instructions
+BF label 10001011dddddddd If T = 0, disp × 2 + PC → PC; if T = 1, nop (where label is disp × 2 + PC) 3/1 —
+BF/S label 10001111dddddddd Delayed branch, if T = 0, disp × 2 + PC → PC; if T = 1, nop 2/1 —
+BT label 10001001dddddddd If T = 1, disp × 2 + PC → PC; if T = 0, nop (where label is disp + PC) 3/1 —
+BT/S label 10001101dddddddd Delayed branch, if T = 1, disp × 2 + PC → PC; if T = 0, nop 2/1 —
+BRA label 1010dddddddddddd Delayed branch, disp × 2 + PC → PC 2 —
+BRAF Rm 0000mmmm00100011 Delayed branch, Rm + PC → PC 2 —
+BSR label 1011dddddddddddd Delayed branch, PC → PR, disp × 2 + PC → PC 2 —
+BSRF Rm 0000mmmm00000011 Delayed branch, PC → PR, Rm + PC → PC 2 —
+JMP @Rm 0100mmmm00101011 Delayed branch, Rm → PC 2 —
+JSR @Rm 0100mmmm00001011 Delayed branch, PC → PR, Rm → PC 2 —
+RTS  0000000000001011 Delayed branch, PR → PC 2 —
 // System Control Instructions
 CLRT  0000000000001000 0 → T 10
 CLRMAC  0000000000101000 0 → MACH, MACL 1 —

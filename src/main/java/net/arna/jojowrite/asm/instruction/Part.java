@@ -28,12 +28,19 @@ public final class Part {
     private final String segment;
     private final ArgumentType argumentType;
     private final List<Fragment> fragments;
+    private int dispMax = 0x00;
+    private String dispZeroPadding = null;
 
     private Part(PartType type, String segment, ArgumentType argumentType, List<Fragment> fragments) {
         this.type = type;
         this.segment = segment;
         this.argumentType = argumentType;
         this.fragments = fragments;
+
+        if (argumentType == ArgumentType.DISPLACEMENT || argumentType == ArgumentType.LABEL) {
+            dispMax = ( 1 << (fragments.size() * 4) ) - 1;
+            dispZeroPadding = "0".repeat(fragments.size());
+        }
     }
 
     /**
@@ -72,25 +79,62 @@ public final class Part {
     public record MatchData(boolean match, String remaining, Optional<Map<Fragment, String>> fragmentHexDigitMap) {}
 
     // Can't parse String by ref
-    public MatchData matches(String in, DisplacementMutation dispMutation) {
+    public MatchData matches(String in, Format.CompilationContext context) {
         if (type == PartType.STATIC) {
             if (in.startsWith(segment)) {
                 return new MatchData(true, in.substring(segment.length()), Optional.empty());
-            }  //else return raiseCompilerError("Invalid instruction, expected: " + segment);
+            }  //else return raiseCompilerError(format, "Invalid instruction, expected: " + segment);
         }
 
         Map<Fragment, String> out = new HashMap<>();
 
         if (type == PartType.VARIABLE) {
+            Format format = context.format();
+            
             switch (argumentType) {
+                case LABEL -> {
+                    if (in.startsWith("$")) { in = in.substring(1); } // Optional $ at start of label
+
+                    if (in.length() == 8) {
+                        int pointerAddress = Integer.valueOf(in, 16);
+                        // + 4 is a forced offset due to it being impractical to jump to the direct next instruction
+                        int instructionAddress = Integer.valueOf(context.address(), 16) + 4;
+                        if (instructionAddress > pointerAddress) {
+                            return raiseCompilerError(format, "Non-referential branching instruction cannot jump back");
+                        } else {
+                            if (pointerAddress % 2 == 0) {
+                                int offset = pointerAddress - instructionAddress;
+                                offset /= context.displacementMutation().getModifier();
+                                if (offset > dispMax) {
+                                    return raiseCompilerError(format, "Cannot jump that far");
+                                }
+                                String offsetStr = Integer.toString(offset, 16);
+                                offsetStr = (dispZeroPadding + offsetStr).substring(offsetStr.length());
+                                for (int i = 0; i < fragments.size(); i++) {
+                                    out.put(fragments.get(i), offsetStr.substring(i, i + 1));
+                                }
+                                return new MatchData(true, "", Optional.of(out));
+                            } else {
+                                return raiseCompilerError(format, "Cannot branch to unaligned address");
+                            }
+                        }
+                    } else {
+                        return raiseCompilerError(format, "Invalid pointer");
+                    }
+                }
+
                 case DISPLACEMENT -> { // 1 or 2 bytes
+                    if (in.startsWith("$")) { in = in.substring(1); } // Optional $ at start of displacement
+
                     int fragSize = fragments.size();
+                    DisplacementMutation dispMutation = context.displacementMutation();
+
                     if (dispMutation == DisplacementMutation.NONE) { // Guaranteed 1 byte
                         if (in.length() >= fragSize) { // "8F" in $8F
                             for (int i = 0; i < fragSize; i++) {
                                 String digit = String.valueOf(in.charAt(i));
                                 if (!JJWUtils.isHexadecimal(digit)) {
-                                    return raiseCompilerError("Invalid character in Hex literal");
+                                    return raiseCompilerError(format, "Invalid character in Hex literal");
                                 }
                                 out.put(fragments.get(i), digit);
                             }
@@ -102,22 +146,22 @@ public final class Part {
                             for (int i = 0; i < fragSize; i++) {
                                 String byteStr = in.substring(i * 2, i * 2 + 2);
                                 if (!JJWUtils.isHexadecimal(byteStr)) {
-                                    return raiseCompilerError("Invalid character in Hex literal");
+                                    return raiseCompilerError(format, "Invalid character in Hex literal");
                                 }
                                 displacementStr += byteStr;
                             }
 
                             int dispValue = Integer.valueOf(displacementStr, 16);
                             if (dispValue % dispMutation.getModifier() != 0) {
-                                return raiseCompilerError("Invalid displacement, should be a multiple of " + dispMutation.getModifier());
+                                return raiseCompilerError(format, "Invalid displacement, should be a multiple of " + dispMutation.getModifier());
                             }
                             dispValue /= dispMutation.getModifier();
-                            if (dispValue > 0xFF) {
-                                return raiseCompilerError("Displacement value too large");
+                            if (dispValue > dispMax) {
+                                return raiseCompilerError(format, "Displacement value too large");
                             }
                             String displacementValueStr = Integer.toString(dispValue, 16);
                             if (fragSize > 1) { // Append leading zeros
-                                displacementValueStr = ("0".repeat(fragSize) + displacementValueStr).substring(displacementValueStr.length());
+                                displacementValueStr = (dispZeroPadding + displacementValueStr).substring(displacementValueStr.length());
                             }
                             for (int i = 0; i < fragSize; i++) {
                                 out.put(fragments.get(i), displacementValueStr.substring(i, i + 1));
@@ -125,7 +169,7 @@ public final class Part {
 
                             return new MatchData(true, in.substring(fragSize * 2), Optional.of(out));
                         } else {
-                            return raiseCompilerError("Incorrect displacement length");
+                            return raiseCompilerError(format, "Incorrect displacement length");
                         }
                     }
                 }
@@ -137,16 +181,16 @@ public final class Part {
                             for (int i = 0; i < fragSize; i++) {
                                 String digit = String.valueOf(in.charAt(1 + i));
                                 if (!JJWUtils.isHexadecimal(digit)) {
-                                    return raiseCompilerError("Invalid character in Hex literal");
+                                    return raiseCompilerError(format, "Invalid character in Hex literal");
                                 }
                                 out.put(fragments.get(i), digit);
                             }
                             return new MatchData(true, in.substring(1 + fragSize), Optional.of(out));
                         } else {
-                            return raiseCompilerError("Incorrect immediate value length");
+                            return raiseCompilerError(format, "Incorrect immediate value length");
                         }
                     } else {
-                        return raiseCompilerError("Expected $ at start of immediate value");
+                        return raiseCompilerError(format, "Expected $ at start of immediate value");
                     }
                 }
 
@@ -165,15 +209,15 @@ public final class Part {
                                 }
                                 int registerId = Integer.valueOf(registerNumber, 10);
                                 if (registerId > 0x0F) {
-                                    return raiseCompilerError("Invalid Register ID");
+                                    return raiseCompilerError(format, "Invalid Register ID");
                                 }
                                 out.put(fragments.get(0), JJWUtils.HEX_DIGITS.substring(registerId, registerId + 1));
                                 return new MatchData(true, in.substring(cutoff), Optional.of(out));
                             } else {
-                                return raiseCompilerError("Invalid character in Decimal literal");
+                                return raiseCompilerError(format, "Invalid character in Decimal literal");
                             }
                         }
-                    } //else return raiseCompilerError("Expected R at start of register reference");
+                    } //else return raiseCompilerError(format, "Expected R at start of register reference");
                 }
             }
         }
@@ -182,8 +226,8 @@ public final class Part {
     }
 
     private static final MatchData fail = new MatchData(false, null, null);
-    public MatchData raiseCompilerError(String error) {
-        Compiler.raiseError(error);
+    public MatchData raiseCompilerError(Format format, String error) {
+        Compiler.raiseError(error + " - format: " + format);
         return fail;
     }
 
