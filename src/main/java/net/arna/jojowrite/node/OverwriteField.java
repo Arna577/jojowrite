@@ -8,8 +8,6 @@ import static net.arna.jojowrite.node.Overwrite.OVERWRITE_MAX_WIDTH;
 import static net.arna.jojowrite.node.Overwrite.OVERWRITE_MIN_WIDTH;
 
 public class OverwriteField extends StyleClassedTextField {
-    //private final Overwrite overwrite;
-
     public OverwriteField(Overwrite overwrite) {
         setOnKeyTyped(
                 keyEvent -> {

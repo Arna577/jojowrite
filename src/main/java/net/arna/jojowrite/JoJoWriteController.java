@@ -7,6 +7,7 @@ import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
 import javafx.stage.StageStyle;
+import javafx.util.Pair;
 import net.arna.jojowrite.JJWUtils.FileType;
 import net.arna.jojowrite.asm.Compiler;
 import net.arna.jojowrite.node.AssemblyArea;
@@ -18,11 +19,7 @@ import org.fxmisc.richtext.StyleClassedTextArea;
 
 import java.io.*;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.ResourceBundle;
-import java.util.Set;
-import java.util.concurrent.Executors;
+import java.util.*;
 
 import static net.arna.jojowrite.TextStyles.BASIC_TEXT;
 import static net.arna.jojowrite.TextStyles.OVERWRITTEN_TEXT;
@@ -74,6 +71,7 @@ public class JoJoWriteController implements Initializable {
         @FXML
         public ROMTextArea romArea;
 
+    private final Timer overwriteLoadTimer = new Timer();
     public static JoJoWriteController getInstance() {
         return instance;
     }
@@ -97,6 +95,7 @@ public class JoJoWriteController implements Initializable {
             }
         );
 
+        overwriteLoadTimer.scheduleAtFixedRate(new OverwriteLoadTask(), 0, 5);
         overwrites.assignParentPane(overwriteScrollPane);
 
         Compiler.setErrorOutputArea(errorArea);
@@ -135,9 +134,9 @@ public class JoJoWriteController implements Initializable {
         try ( FileWriter outWriter = new FileWriter(files.get(type)) ) {
             switch (type) {
                 case OVERWRITE -> {
-                    for (int i = overwrites.size() - 1; i >= 0; i--)
+                    for (int i = 0; i < overwrites.size(); i++)
                         if (overwrites.get(i) instanceof Overwrite overwrite)
-                            outWriter.append(overwrite.toString());
+                            outWriter.append(overwrite.toString()).append("\n");
                 }
 
                 case ASSEMBLY -> outWriter.append(assemblyArea.getText());
@@ -257,52 +256,46 @@ public class JoJoWriteController implements Initializable {
         setOpenType(FileType.OVERWRITE);
     }
 
-    private static final int NUM_THREADS = 4; // Number of threads
+    private class OverwriteLoadTask extends TimerTask {
+        @Override
+        public void run() {
+            Platform.runLater(() -> {
+                Pair<String, String> pair = overwriteStringPairs.poll();
+                if (pair == null) return;
+                Overwrite.fromStrings(pair.getKey(), pair.getValue()).assignOverwriteBox(overwrites, false);
+            });
+        }
+    }
+
+    public static Queue<Pair<String, String>> overwriteStringPairs = new LinkedList<>();
     public void openOverwriteFile() {
         if (selectOverwriteFile() == null)
             return;
 
         setOpenType(FileType.OVERWRITE);
+        overwrites.clear();
 
-        //TODO: figure out if this leaks memory
-        overwrites.getChildren().removeAll();
-
-        long ns = System.currentTimeMillis();
-        try {
-            FileReader reader = new FileReader(files.get(FileType.OVERWRITE));
-            BufferedReader br = new BufferedReader(reader);
+        try (FileReader fileReader = new FileReader(files.get(FileType.OVERWRITE))) {
+            BufferedReader bufferedReader = new BufferedReader(fileReader);
             String line;
-            while ((line = br.readLine()) != null) {
-                Overwrite.fromCharSequence(line + '\n' + br.readLine()).assignOverwriteBox(overwrites);
-            }
-            br.close();
-
-            romArea.requestFocus();
-            refreshOverwrites();
-            overwrites.updateVisibility();
+            while ((line = bufferedReader.readLine()) != null)
+                overwriteStringPairs.add(new Pair<>(line, bufferedReader.readLine()));
+            bufferedReader.close();
         } catch (Exception e) {
             JJWUtils.printException(e, "An error occurred while opening overwrite file.");
         }
 
-        System.out.println("COMPLETE; took " + (System.currentTimeMillis() - ns) + "ms");
-
         /*
-        Random random = new Random();
-        for (int i = 0; i < 2048; i++) {
-            Overwrite ovr = new Overwrite(overwrites);
-            ovr.setAddressText(Integer.toHexString(random.nextInt(0x07fffff)));
-            String testText = Long.toHexString(random.nextLong(0x7fffffffffffffffL));
-            if (testText.length() % 2 == 1)
-                testText += '0';
-            ovr.setOverwriteText(testText);
-        }
+        ExecutorService executor = Executors.newFixedThreadPool(NUM_THREADS);
+        for (int i = 0; i < NUM_THREADS; i++) executor.execute(new OverwriteCreatorThread(overwriteStrings));
+        executor.shutdown();
+        while (!executor.isTerminated()) {}
+        while (!newOverwrites.isEmpty()) newOverwrites.poll().assignOverwriteBox(overwrites);
+         */
 
-        for (int i = 0; i < 128; i++) {
-            var ovr = new Overwrite(overwrites);
-            ovr.setAddressText(Integer.toHexString(i));
-            ovr.setOverwriteText("FF");
-        }
-        */
+        romArea.requestFocus();
+        refreshOverwrites();
+        overwrites.updateVisibility();
     }
 
     public File selectOverwriteFile() {

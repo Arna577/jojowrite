@@ -15,7 +15,7 @@ public class HexTextField extends TextField {
 
     public HexTextField(String s, int maxLength) {
         super(s);
-        setTextFormatter(new TextFormatter<HexTextField>(JJWUtils.limitLengthOperator(maxLength)));
+        setTextFormatter(new TextFormatter<>(JJWUtils.limitLengthOperator(maxLength)));
     }
 
     private static boolean validateText(String text) {

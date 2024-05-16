@@ -31,7 +31,6 @@ import java.util.ArrayList;
  *  select overwrite from ROM red text
  */
 public class Overwrite extends VBox {
-    private final HBox overwriteAndOptions;
     /**
      * Contains text of an 8-digit hex pointer to ROM memory.
      * Updating this fields text will cause a {@link Overwrite#separateBytes()}
@@ -56,9 +55,9 @@ public class Overwrite extends VBox {
     public static final double OVERWRITE_MIN_WIDTH = 240.0, OVERWRITE_MAX_WIDTH = 640.0;
 
     public Overwrite() {
-        overwriteAndOptions = new HBox();
+        HBox overwriteAndOptions = new HBox();
 
-        addressField = new HexTextField("00", 8);
+        addressField = new HexTextField("00000000", 8);
         addressField.getStyleClass().add("address");
         addressField.setPromptText("Address");
         addressField.setMaxWidth(98.0);
@@ -66,7 +65,6 @@ public class Overwrite extends VBox {
 
         overwriteField = new OverwriteField(this);
         overwriteField.getStyleClass().add("overwrite-field");
-        overwriteField.setPromptText(new Text("Overwrite Bytes"));
         overwriteField.setMinWidth(OVERWRITE_MIN_WIDTH);
         overwriteField.setMaxWidth(OVERWRITE_MAX_WIDTH);
 
@@ -93,13 +91,17 @@ public class Overwrite extends VBox {
      */
     public Overwrite(OverwriteBox overwrites) {
         this();
-        assignOverwriteBox(overwrites);
+        assignOverwriteBox(overwrites, true);
     }
 
-    public void assignOverwriteBox(OverwriteBox overwrites) {
-        delete.setOnAction(event -> overwrites.remove(this));
+    public void assignOverwriteBox(OverwriteBox overwrites, boolean prepend) {
+        delete.setOnAction(event -> {
+            overwrites.remove(this);
+            JoJoWriteController.getInstance().refreshOverwrites();
+        });
 
-        overwrites.add(0, this);
+        if (prepend) overwrites.add(0, this);
+        else overwrites.add(this);
     }
 
     void separateBytes() {
@@ -143,38 +145,18 @@ public class Overwrite extends VBox {
 
     @Override
     public String toString() {
-        return addressField.getText() + ':' + overwriteField.getText() + '\n' + commentField.getText() + '\n';
+        return addressField.getText() + ':' + overwriteField.getText() + '\n' + commentField.getText();
     }
 
-    // This COULD be generalized into a map of rules, but that's pointless because this will be the only String reading of this type.
-    public static Overwrite fromCharSequence(CharSequence seq) throws IllegalStateException {
+    public static Overwrite fromStrings(String addressAndOverwrite, String comment) {
+        //long ms = System.currentTimeMillis();
         Overwrite overwrite = new Overwrite();
-        StringBuilder addressText = new StringBuilder();
-        StringBuilder overwriteText = new StringBuilder();
-        StringBuilder commentText = new StringBuilder();
-        boolean hitColon = false, hitNewline = false;
-        for (int i = 0; i < seq.length(); i++) {
-            char c = seq.charAt(i);
-            if (c == ':') {
-                if (hitColon)
-                    commentText.append(':');
-                else
-                    hitColon = true;
-            } else if (c == '\n') {
-                if (hitNewline) {
-                    throw new IllegalStateException("Hit newline twice during Overwrite.fromCharSequence()! Should be ADDRESS: BYTES\\nCOMMENT");
-                } else {
-                    hitNewline = true;
-                }
-            } else {
-                if (hitNewline) commentText.append(c);
-                else if (hitColon) overwriteText.append(c);
-                else addressText.append(c);
-            }
-        }
-        overwrite.setAddressText(addressText.toString());
-        overwrite.setOverwriteText(overwriteText.toString());
-        overwrite.setCommentText(commentText.toString());
+        int colonIndex = addressAndOverwrite.indexOf(':');
+        if (colonIndex == -1) throw new IllegalArgumentException("Invalid string for generating Overwrite; " + addressAndOverwrite);
+        overwrite.setAddressText(addressAndOverwrite.substring(0, colonIndex));
+        overwrite.setOverwriteText(addressAndOverwrite.substring(colonIndex + 1));
+        overwrite.setCommentText(comment);
+        //System.out.println("COMPLETE; took " + (System.currentTimeMillis() - ms) + "ms");
         return overwrite;
     }
 

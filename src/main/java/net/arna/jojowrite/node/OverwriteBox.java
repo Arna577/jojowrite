@@ -1,18 +1,15 @@
 package net.arna.jojowrite.node;
 
-import javafx.collections.ListChangeListener;
 import javafx.geometry.Bounds;
 import javafx.scene.Node;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.layout.VBox;
-import net.arna.jojowrite.JoJoWriteController;
 
 public class OverwriteBox extends VBox {
     private ScrollPane parentPane;
 
     public OverwriteBox() {
         super();
-
         //getChildren().addListener((ListChangeListener<? super Node>) c -> updateVisibility());
     }
 
@@ -49,7 +46,13 @@ public class OverwriteBox extends VBox {
 
     public void remove(Overwrite overwrite) {
         getChildren().remove(overwrite);
-        JoJoWriteController.getInstance().refreshOverwrites();
+    }
+
+    /**
+     * Appends an overwrite to the end of this OverwriteBoxes children.
+     */
+    public void add(Overwrite overwrite) {
+        getChildren().add(overwrite);
     }
 
     public void add(int index, Overwrite overwrite) {
