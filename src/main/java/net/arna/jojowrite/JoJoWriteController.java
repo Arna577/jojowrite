@@ -1,6 +1,7 @@
 package net.arna.jojowrite;
 
 import javafx.application.Platform;
+import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.Node;
@@ -10,10 +11,7 @@ import javafx.stage.StageStyle;
 import javafx.util.Pair;
 import net.arna.jojowrite.JJWUtils.FileType;
 import net.arna.jojowrite.asm.Compiler;
-import net.arna.jojowrite.node.AssemblyArea;
-import net.arna.jojowrite.node.Overwrite;
-import net.arna.jojowrite.node.OverwriteBox;
-import net.arna.jojowrite.node.ROMTextArea;
+import net.arna.jojowrite.node.*;
 import org.fxmisc.flowless.VirtualizedScrollPane;
 import org.fxmisc.richtext.StyleClassedTextArea;
 
@@ -59,8 +57,10 @@ public class JoJoWriteController implements Initializable {
 
     @FXML
     public HBox patchControls;
-
-    private static Set<Node> romNodes, overwriteNodes, assemblyNodes, patchNodes;
+    @FXML
+    public VirtualizedScrollPane<?> patchScrollPane;
+        @FXML
+        public PatchArea patchArea;
 
     @FXML
     public HBox romTextBox;
@@ -71,6 +71,8 @@ public class JoJoWriteController implements Initializable {
         @FXML
         public ROMTextArea romArea;
 
+    private Map<FileType, Set<Node>> fileTypeNodeMap;
+
     private final Timer overwriteLoadTimer = new Timer();
     public static JoJoWriteController getInstance() {
         return instance;
@@ -80,10 +82,17 @@ public class JoJoWriteController implements Initializable {
     public void initialize(URL location, ResourceBundle resources) {
         instance = this;
 
-        assemblyNodes = Set.of(errorScrollPane, assemblyScrollPane, outputScrollPane);
-        overwriteNodes = Set.of(romTextBox, overwriteScrollPane, overwrites, overwriteControls);
-        romNodes = Set.of(romTextBox);
-        patchNodes = Set.of(patchControls);
+        Set<Node> assemblyNodes = Set.of(errorScrollPane, assemblyScrollPane, outputScrollPane);
+        Set<Node> overwriteNodes = Set.of(romTextBox, overwriteScrollPane, overwrites, overwriteControls);
+        Set<Node> romNodes = Set.of(romTextBox);
+        Set<Node> patchNodes = Set.of(patchControls, patchScrollPane);
+
+        fileTypeNodeMap = Map.of(
+                FileType.ASSEMBLY, assemblyNodes,
+                FileType.PATCH, patchNodes,
+                FileType.OVERWRITE, overwriteNodes,
+                FileType.ROM, romNodes
+        );
 
         romScrollBar.valueProperty().addListener(
             (observable, oldValue, newValue) -> {
@@ -95,7 +104,7 @@ public class JoJoWriteController implements Initializable {
             }
         );
 
-        overwriteLoadTimer.scheduleAtFixedRate(new OverwriteLoadTask(), 0, 5);
+        overwriteLoadTimer.scheduleAtFixedRate(new OverwriteLoadTask(), 0, 2);
         overwrites.assignParentPane(overwriteScrollPane);
 
         Compiler.setErrorOutputArea(errorArea);
@@ -106,28 +115,15 @@ public class JoJoWriteController implements Initializable {
     public void setOpenType(FileType type) {
         openType = type;
 
-        // Special editor style for overwrite files
-        switch (type) {
-            case OVERWRITE -> {
-                overwriteNodes.forEach(node -> node.setVisible(true));
-                assemblyNodes.forEach(node -> node.setVisible(false));
-                patchNodes.forEach(node -> node.setVisible(false));
-            }
-            case ASSEMBLY -> {
-                overwriteNodes.forEach(node -> node.setVisible(false));
-                assemblyNodes.forEach(node -> node.setVisible(true));
-                patchNodes.forEach(node -> node.setVisible(false));
-            }
-            case ROM -> {
-                overwriteNodes.forEach(node -> node.setVisible(false));
-                assemblyNodes.forEach(node -> node.setVisible(false));
-                romNodes.forEach(node -> node.setVisible(true));
-                patchNodes.forEach(node -> node.setVisible(false));
-            }
-            case PATCH -> {
-                patchNodes.forEach(node -> node.setVisible(true));
-            }
-        }
+        fileTypeNodeMap.forEach((key, value) -> {
+            boolean keyMatches = type == key;
+            value.forEach(
+                    node -> {
+                        node.setVisible(keyMatches);
+                        node.setManaged(keyMatches);
+                    }
+            );
+        });
     }
 
     public void saveFile(FileType type) {
@@ -190,6 +186,11 @@ public class JoJoWriteController implements Initializable {
     }
 
     /** PATCH **/
+    public void newPatch() {
+        newFile(FileType.PATCH);
+        setOpenType(FileType.PATCH);
+    }
+
     public void trySavePatch() {
         trySaveFile(FileType.PATCH);
     }
@@ -198,7 +199,7 @@ public class JoJoWriteController implements Initializable {
         if (selectPatch() == null) return;
 
         setOpenType(FileType.PATCH);
-        assemblyArea.clear();
+        patchArea.clear();
 
         try
         {
@@ -206,11 +207,11 @@ public class JoJoWriteController implements Initializable {
             BufferedReader br = new BufferedReader(reader);
             String line;
             while ((line = br.readLine()) != null) {
-                assemblyArea.appendText(line);
-                assemblyArea.appendText("\n");
+                patchArea.appendText(line);
+                patchArea.appendText("\n");
             }
             br.close();
-            assemblyArea.requestFocus();
+            patchArea.requestFocus();
         }
         catch (Exception e) {
             JJWUtils.printException(e, "An error occurred while opening assembly file.");
@@ -223,6 +224,26 @@ public class JoJoWriteController implements Initializable {
 
     public void selectAndSavePatch() {
         selectAndSaveFile(FileType.PATCH);
+    }
+
+    public void addLoadedToPatch() {
+        File rom = files.get(FileType.ROM);
+        if (rom == null) {
+            patchArea.appendText("\nNo ROM selected!");
+            patchArea.selectLine();
+            patchArea.requestFocus();
+            return;
+        }
+
+        patchArea.appendText(rom.getPath() + '\n');
+
+        files.forEach(
+                (type, file) -> {
+                    if (type != FileType.PATCH && type != FileType.ROM) {
+                        patchArea.appendText(file.getPath() + '\n');
+                    }
+                }
+        );
     }
 
     public void patchROM() {
@@ -263,6 +284,8 @@ public class JoJoWriteController implements Initializable {
                 Pair<String, String> pair = overwriteStringPairs.poll();
                 if (pair == null) return;
                 Overwrite.fromStrings(pair.getKey(), pair.getValue()).assignOverwriteBox(overwrites, false);
+                overwrites.layout();
+                overwrites.updateVisibility();
             });
         }
     }

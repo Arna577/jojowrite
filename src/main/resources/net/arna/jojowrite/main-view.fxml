@@ -7,6 +7,7 @@
 <?import org.fxmisc.flowless.VirtualizedScrollPane?>
 <?import org.fxmisc.richtext.StyleClassedTextArea?>
 <?import net.arna.jojowrite.node.OverwriteBox?>
+<?import net.arna.jojowrite.node.PatchArea?>
 <BorderPane xmlns="http://javafx.com/javafx/8.0.111" xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="net.arna.jojowrite.JoJoWriteController" styleClass="main">
     <top>
@@ -31,7 +32,7 @@
                     <MenuItem text="Save As" onAction="#selectAndSaveAssembly"/>
                 </Menu>
                 <Menu text="Patch">
-                    <MenuItem text="New"/>
+                    <MenuItem text="New" onAction="#newPatch"/>
                     <MenuItem text="Open" onAction="#openPatch"/>
                     <MenuItem text="Select" onAction="#selectPatch"/>
                     <MenuItem text="Save" onAction="#trySavePatch"/>
@@ -49,7 +50,7 @@
             </HBox>
 
             <HBox fx:id="patchControls" BorderPane.alignment="TOP_RIGHT">
-                <Button text="Add Currently Loaded" onAction="#newOverwrite" styleClass="button"/>
+                <Button text="Add Currently Loaded" onAction="#addLoadedToPatch" styleClass="button"/>
             </HBox>
         </HBox>
     </top>
@@ -80,6 +81,12 @@
                 </VirtualizedScrollPane>
                 <ScrollBar fx:id="romScrollBar" blockIncrement="20.0" orientation="VERTICAL" styleClass="scroll-pane"/>
             </HBox>
+
+            <VirtualizedScrollPane fx:id="patchScrollPane" styleClass="scroll-pane">
+                <content>
+                    <PatchArea fx:id="patchArea" styleClass="patch-area"/>
+                </content>
+            </VirtualizedScrollPane>
         </StackPane>
     </center>
 

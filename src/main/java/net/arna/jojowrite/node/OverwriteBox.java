@@ -32,8 +32,9 @@ public class OverwriteBox extends VBox {
 
         //int numVisibleNodes = 0;
         for (Node node : getChildrenUnmodifiable()) {
+            if (!(node instanceof Overwrite overwrite)) continue;
             double nodeY = node.getLayoutY();
-            double nodeHeight = node.getBoundsInLocal().getHeight();
+            double nodeHeight = overwrite.getLayoutHeight();
             // The node is in view if the vertical offset (with a buffer of the node height) is over the node Y position. (+Y goes down)
             // ...and if its relative position to the top of the Viewport is under the Viewport height (maxHeight) + node height as a buffer.
             boolean inView = verticalOffset + nodeHeight >= nodeY && verticalOffset - nodeY <= maxHeight + nodeHeight;

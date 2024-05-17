@@ -4,8 +4,8 @@ import net.arna.jojowrite.JJWUtils;
 import net.arna.jojowrite.JoJoWriteController;
 import org.fxmisc.richtext.StyleClassedTextField;
 
-import static net.arna.jojowrite.node.Overwrite.OVERWRITE_MAX_WIDTH;
-import static net.arna.jojowrite.node.Overwrite.OVERWRITE_MIN_WIDTH;
+import static net.arna.jojowrite.node.Overwrite.OVERWRITE_TEXT_MAX_WIDTH;
+import static net.arna.jojowrite.node.Overwrite.OVERWRITE_TEXT_MIN_WIDTH;
 
 public class OverwriteField extends StyleClassedTextField {
     public OverwriteField(Overwrite overwrite) {
@@ -15,8 +15,8 @@ public class OverwriteField extends StyleClassedTextField {
 
                     // Adjust size to fit
                     double newLength = length * 16 / 1.33;
-                    if (newLength < OVERWRITE_MIN_WIDTH) newLength = OVERWRITE_MIN_WIDTH;
-                    if (newLength > OVERWRITE_MAX_WIDTH) newLength = OVERWRITE_MAX_WIDTH;
+                    if (newLength < OVERWRITE_TEXT_MIN_WIDTH) newLength = OVERWRITE_TEXT_MIN_WIDTH;
+                    if (newLength > OVERWRITE_TEXT_MAX_WIDTH) newLength = OVERWRITE_TEXT_MAX_WIDTH;
                     this.setPrefWidth(newLength);
 
                     int caretPosition = getCaretPosition();

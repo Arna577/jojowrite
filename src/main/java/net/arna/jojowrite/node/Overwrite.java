@@ -4,7 +4,6 @@ import javafx.scene.control.Button;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
-import javafx.scene.text.Text;
 import net.arna.jojowrite.JoJoWriteController;
 
 import java.util.ArrayList;
@@ -14,8 +13,8 @@ import java.util.ArrayList;
  * [Comment]
  */
 
-/**
- * A {@link VBox} Node used for user I/O of .overwrite data.
+/***
+ * A lazy-loaded {@link VBox} Node used for user I/O of overwrite data.
  * The {@link Overwrite#addressField} is coerced to an 8-digit Hex string.
  * The {@link Overwrite#overwriteField} is coerced into a Hex string.
  * The {@link Overwrite#commentField} is used so the user has an easier time remembering & understanding what their changes are doing.
@@ -35,54 +34,43 @@ public class Overwrite extends VBox {
      * Contains text of an 8-digit hex pointer to ROM memory.
      * Updating this fields text will cause a {@link Overwrite#separateBytes()}
      */
-    private final HexTextField addressField;
+    private HexTextField addressField;
     /**
      * Contains an unbounded string of hex digits, which are coerced into pairs.
      * Updating this fields text will cause a {@link Overwrite#separateBytes()}
      */
-    private final OverwriteField overwriteField;
+    private OverwriteField overwriteField;
     /**
      * May contain most characters, used by the user to annotate what this Overwrite does.
      */
-    private final TextField commentField;
-    private final Button showInROM;
-    private final Button delete;
+    private TextField commentField;
+    private Button showInROM;
+    private Button delete;
     /**
      * A HashMap containing indices and byte Strings, used for rendering Overwrites in the {@link ROMTextArea}.
      */
     private final ArrayList<String> byteMap = new ArrayList<>();
 
-    public static final double OVERWRITE_MIN_WIDTH = 240.0, OVERWRITE_MAX_WIDTH = 640.0;
+    public static final double OVERWRITE_TEXT_MIN_WIDTH = 240.0, OVERWRITE_TEXT_MAX_WIDTH = 640.0, OVERWRITE_MIN_HEIGHT = 68.0;
+
+    private boolean loaded = false;
+
+    private OverwriteBox overwrites = null;
 
     public Overwrite() {
-        HBox overwriteAndOptions = new HBox();
+        setMinHeight(OVERWRITE_MIN_HEIGHT);
 
-        addressField = new HexTextField("00000000", 8);
-        addressField.getStyleClass().add("address");
-        addressField.setPromptText("Address");
-        addressField.setMaxWidth(98.0);
-        addressField.setOnKeyTyped(keyEvent -> separateBytes());
+        visibleProperty().setValue(false);
+        visibleProperty().addListener(
+                (observable, oldValue, newValue) -> {
+                    if (!loaded && newValue) load();
+                }
+        );
+    }
 
-        overwriteField = new OverwriteField(this);
-        overwriteField.getStyleClass().add("overwrite-field");
-        overwriteField.setMinWidth(OVERWRITE_MIN_WIDTH);
-        overwriteField.setMaxWidth(OVERWRITE_MAX_WIDTH);
-
-        showInROM = new Button("Show in ROM");
-        //showInROM.setMinWidth(130.0);
-        showInROM.setOnAction(event -> JoJoWriteController.getInstance().showInROM(getAddress(), overwriteField.getLength()));
-
-        delete = new Button("Delete");
-        delete.getStyleClass().add("delete-button");
-        //delete.setMinWidth(85.0);
-
-        overwriteAndOptions.getChildren().addAll(addressField, overwriteField, showInROM, delete);
-
-        commentField = new TextField();
-        commentField.getStyleClass().add("code-area");
-        commentField.setPromptText("Explain what this overwrite does");
-
-        getChildren().addAll(overwriteAndOptions, commentField);
+    public double getLayoutHeight() {
+        if (loaded) return getBoundsInLocal().getHeight();
+        return OVERWRITE_MIN_HEIGHT;
     }
 
     /**
@@ -95,13 +83,51 @@ public class Overwrite extends VBox {
     }
 
     public void assignOverwriteBox(OverwriteBox overwrites, boolean prepend) {
+        this.overwrites = overwrites;
+        if (prepend) overwrites.add(0, this);
+        else overwrites.add(this);
+    }
+
+    private void load() {
+        if (loaded) throw new IllegalStateException("Tried to load Overwrite more than once!");
+        if (overwrites == null) throw new IllegalStateException("Tried to load Overwrite without an assigned OverwriteBox!");
+        HBox overwriteAndOptions = new HBox();
+
+        addressField = new HexTextField(bufferAddressText == null ? "00000000" : bufferAddressText, 8);
+        addressField.getStyleClass().add("address");
+        addressField.setPromptText("Address");
+        addressField.setMaxWidth(98.0);
+        addressField.setOnKeyTyped(keyEvent -> separateBytes());
+
+        overwriteField = new OverwriteField(this);
+        overwriteField.setText(bufferOverwriteText);
+        overwriteField.getStyleClass().add("overwrite-field");
+        overwriteField.setMinWidth(OVERWRITE_TEXT_MIN_WIDTH);
+        overwriteField.setMaxWidth(OVERWRITE_TEXT_MAX_WIDTH);
+
+        showInROM = new Button("Show in ROM");
+        //showInROM.setMinWidth(130.0);
+        showInROM.setOnAction(event -> JoJoWriteController.getInstance().showInROM(getAddress(), overwriteField.getLength()));
+
+        delete = new Button("Delete");
+        delete.getStyleClass().add("delete-button");
         delete.setOnAction(event -> {
             overwrites.remove(this);
             JoJoWriteController.getInstance().refreshOverwrites();
         });
+        //delete.setMinWidth(85.0);
 
-        if (prepend) overwrites.add(0, this);
-        else overwrites.add(this);
+        overwriteAndOptions.getChildren().addAll(addressField, overwriteField, showInROM, delete);
+
+        commentField = new TextField(bufferCommentText);
+        commentField.getStyleClass().add("code-area");
+        commentField.setPromptText("Explain what this overwrite does");
+
+        getChildren().addAll(overwriteAndOptions, commentField);
+
+        loaded = true;
+
+        //System.out.println("Loaded new overwrite; " + this);
     }
 
     void separateBytes() {
@@ -121,8 +147,9 @@ public class Overwrite extends VBox {
     }
 
     public int getAddress() {
-        if (addressField.getLength() == 0) return 0;
-        return Integer.parseUnsignedInt(addressField.getText(), 16);
+        String toParse = loaded ? addressField.getText() : bufferAddressText;
+        if (toParse.length() == 0) return 0;
+        return Integer.parseUnsignedInt(toParse, 16);
     }
 
     public void setAddressText(String text) {
@@ -139,23 +166,33 @@ public class Overwrite extends VBox {
         commentField.setText(text);
     }
 
+    public String getAddressText() {
+        if (loaded) return addressField.getText();
+        return bufferAddressText;
+    }
+
     public String getOverwriteText() {
-        return overwriteField.getText();
+        if (loaded) return overwriteField.getText();
+        return bufferOverwriteText;
     }
 
     @Override
     public String toString() {
-        return addressField.getText() + ':' + overwriteField.getText() + '\n' + commentField.getText();
+        if (loaded) return addressField.getText() + ':' + overwriteField.getText() + '\n' + commentField.getText();
+        return "Unloaded Overwrite@" + hashCode();
     }
 
+    private String bufferAddressText = null;
+    private String bufferOverwriteText = null;
+    private String bufferCommentText = null;
     public static Overwrite fromStrings(String addressAndOverwrite, String comment) {
         //long ms = System.currentTimeMillis();
         Overwrite overwrite = new Overwrite();
         int colonIndex = addressAndOverwrite.indexOf(':');
         if (colonIndex == -1) throw new IllegalArgumentException("Invalid string for generating Overwrite; " + addressAndOverwrite);
-        overwrite.setAddressText(addressAndOverwrite.substring(0, colonIndex));
-        overwrite.setOverwriteText(addressAndOverwrite.substring(colonIndex + 1));
-        overwrite.setCommentText(comment);
+        overwrite.bufferAddressText = addressAndOverwrite.substring(0, colonIndex);
+        overwrite.bufferOverwriteText = addressAndOverwrite.substring(colonIndex + 1);
+        overwrite.bufferCommentText = comment;
         //System.out.println("COMPLETE; took " + (System.currentTimeMillis() - ms) + "ms");
         return overwrite;
     }

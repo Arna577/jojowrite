@@ -110,6 +110,25 @@
     -fx-stroke: -jjw-text-color;
 }
 
+/* Patch Area */
+.patch-area {
+    -fx-border-width: 1;
+    -fx-border-style: solid;
+    -fx-border-color: -jjw-light-color;
+
+    -fx-background-radius: 2 2 2 2;
+    -fx-background-color: -jjw-dark-color;
+}
+
+.patch-area .text {
+    -fx-font-family: "Courier Prime";
+    -fx-font-size: 18;
+}
+
+.caret {
+    -fx-stroke: -jjw-text-color;
+}
+
 /* Error Area */
 .error-area .content {
     -fx-border-width: 1;
