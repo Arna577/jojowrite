@@ -4,8 +4,8 @@ import javafx.scene.control.ContextMenu;
 import javafx.scene.control.MenuItem;
 import net.arna.jojowrite.JJWUtils;
 import net.arna.jojowrite.JoJoWriteController;
-import net.arna.jojowrite.TextStyles;
 import net.arna.jojowrite.asm.Compiler;
+import net.arna.jojowrite.asm.instruction.Instruction;
 import org.fxmisc.richtext.CodeArea;
 import org.fxmisc.richtext.LineNumberFactory;
 
@@ -75,7 +75,7 @@ public class AssemblyArea extends CodeArea {
                 if (paragraph.startsWith("//")) { // Comments
                     setStyleClass(startIndex, startIndex + paraLength, COMMENT_TEXT);
                 } else { // Assembly
-                    processAssemblyParagraph(i, paragraph, startIndex);
+                    processAssemblyParagraph(i, paragraph);
                 }
 
                 startIndex += paraLength + 1; // Account for omitted \n
@@ -89,16 +89,15 @@ public class AssemblyArea extends CodeArea {
         System.out.println("Finished AssemblyArea#update() at: " + delta + "ms, average: " + perfAvg.stream().mapToLong(i -> i).sum() / perfAvg.size() + ".");
     }
 
-    private void processAssemblyParagraph(int lineIndex, String paragraph, int startIndex) {
-        String[] tokens = paragraph.split(" ");
-        final String addressColonInstructionToken = tokens[0]; // 06123456:TEST
+    private void processAssemblyParagraph(int lineIndex, String paragraph) {
+        String[] tokens = paragraph.split(":");
+        final String addressStr = tokens[0]; // 06123456:TEST
 
-        if (addressColonInstructionToken.length() < 9) {
-            Compiler.raiseError("Invalid address prefix: " + addressColonInstructionToken);
+        if (addressStr.length() < 8) {
+            Compiler.raiseError("Invalid address length: " + addressStr);
             return;
         }
 
-        final String addressStr = addressColonInstructionToken.substring(0, 8);
         if (!JJWUtils.isHexadecimal(addressStr)) {
             Compiler.raiseError("Invalid character in Hex literal");
             return;
@@ -109,31 +108,16 @@ public class AssemblyArea extends CodeArea {
             return;
         }
 
-        int endOfAddressIndex = startIndex + 8;
-        setStyleClass(startIndex, endOfAddressIndex, ADDRESS_TEXT);
-        if (paragraph.charAt(8) == ':') {
-            String instructionStr = paragraph.substring(9);
-            if (instructionStr.isEmpty()) return;
+        if (tokens.length < 2) return;
 
-            setStyleClass(endOfAddressIndex, endOfAddressIndex + 1, BASIC_TEXT);
-            int keywordLength = instructionStr.indexOf(' ');
-            int parameterLength = instructionStr.length() - keywordLength;
-            int endOfKeywordIndex = endOfAddressIndex + 1 + keywordLength;
-            setStyleClass(endOfAddressIndex + 1, endOfKeywordIndex, KEYWORD_TEXT);
-            setStyleClass(endOfKeywordIndex, endOfKeywordIndex + parameterLength, PARAMETER_TEXT);
+        final String instructionStr = tokens[1];
+        if (instructionStr.isEmpty()) return;
 
-            var possible = Compiler.getPossibleInstructions(addressStr, instructionStr).toList();
-            if (possible.size() == 1) {
-                Compiler.clearErrors(lineIndex);
-                JoJoWriteController.getInstance().appendToOutput(
-                        Compiler.compileToHexString(possible.get(0), addressStr, instructionStr) + '\n');
-            }
-
-            for (int j = keywordLength; j < instructionStr.length(); j++) {
-                String style = styleMap.get(instructionStr.charAt(j));
-                if (style != null)
-                    setStyleClass(endOfAddressIndex + 1 + j, endOfAddressIndex + 2 + j, style);
-            }
+        List<Instruction> possible = Compiler.getPossibleInstructions(addressStr, instructionStr).toList();
+        if (possible.size() == 1) {
+            Compiler.clearErrors(lineIndex);
+            JoJoWriteController.getInstance().appendToOutput(
+                    Compiler.compileToHexString(possible.get(0), addressStr, instructionStr) + '\n');
         }
     }
 
