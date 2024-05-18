@@ -41,6 +41,7 @@
                 </Menu>
                 <Menu text="Help">
                     <MenuItem text="Overwrites" onAction="#showOverwriteHelp"/>
+                    <MenuItem text="Hotkeys" onAction="#showHotkeyHelp"/>
                 </Menu>
             </MenuBar>
 

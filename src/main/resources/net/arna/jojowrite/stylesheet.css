@@ -147,7 +147,11 @@
 
 /* Assembly */
 .keyword-text {
-    -fx-fill: #AA33CC;
+    -fx-fill: #BB33DD;
+}
+
+.parameter-text {
+    -fx-fill: #7FFFD4;
 }
 
 .address-text {
@@ -156,6 +160,10 @@
 
 .comment-text {
     -fx-fill: #337799;
+}
+
+.at-symbol {
+    -fx-fill: #FFA500;
 }
 
 /* Scroll Pane */

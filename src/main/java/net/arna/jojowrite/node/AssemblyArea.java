@@ -4,11 +4,15 @@ import javafx.scene.control.ContextMenu;
 import javafx.scene.control.MenuItem;
 import net.arna.jojowrite.JJWUtils;
 import net.arna.jojowrite.JoJoWriteController;
+import net.arna.jojowrite.TextStyles;
 import net.arna.jojowrite.asm.Compiler;
 import org.fxmisc.richtext.CodeArea;
 import org.fxmisc.richtext.LineNumberFactory;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 import static net.arna.jojowrite.TextStyles.*;
 
@@ -26,7 +30,7 @@ public class AssemblyArea extends CodeArea {
 
                     if (event.getCharacter().equals("\r") || event.getCharacter().equals("\n")) {
                         int paragraphID = getCurrentParagraph();
-                        if (--paragraphID > 0) {
+                        if (--paragraphID >= 0) {
                             String lastParagraph = getText(paragraphID);
                             if (lastParagraph.length() >= 8) {
                                 String address = lastParagraph.substring(0, 8);
@@ -45,45 +49,91 @@ public class AssemblyArea extends CodeArea {
         );
     }
 
+    private final Map<Character, String> styleMap = Map.of(
+            '(', BASIC_TEXT,
+            ')', BASIC_TEXT,
+            ',', BASIC_TEXT,
+            '@', AT_SYMBOL,
+            '#', TEMP_OVERWRITE_TEXT
+    );
+
+    List<Long> perfAvg = new ArrayList<>();
     public void update() {
+        long ms = System.currentTimeMillis();
+
         // getParagraphs() causes an IllegalAccessError due to some insane fucking module linking issue
         String[] paragraphs = getText().split("\n");
         int startIndex = 0;
-        for (String paragraph : paragraphs) {
-            int paraLength = paragraph.length();
-            if (!paragraph.isEmpty()) {
+        for (int i = 0; i < paragraphs.length; i++) {
+            String paragraph = paragraphs[i];
+            if (paragraph.isEmpty()) {
+                startIndex++;
+            } else {
+                int paraLength = paragraph.length();
+                Compiler.openErrorLog(i);
+
                 if (paragraph.startsWith("//")) { // Comments
                     setStyleClass(startIndex, startIndex + paraLength, COMMENT_TEXT);
                 } else { // Assembly
-                    String[] tokens = paragraph.split(" ");
-                    if (paragraph.length() < 9) {
-                        Compiler.raiseError("Invalid address prefix: " + tokens[0]);
-                    } else {
-                        String addressStr = tokens[0].substring(0, 8);
-                        if (!JJWUtils.isHexadecimal(addressStr)) {
-                            Compiler.raiseError("Invalid character in Hex literal");
-                        } else {
-                            if (Integer.valueOf(addressStr, 16) % 2 != 0) {
-                                Compiler.raiseError("Unaligned address: " + addressStr);
-                            } else {
-                                setStyleClass(startIndex, startIndex + 8, ADDRESS_TEXT);
-                                if (paragraph.charAt(8) == ':') {
-                                    String instructionStr = paragraph.substring(9);
-                                    var possible = Compiler.getPossibleInstructions(addressStr, instructionStr).toList();
-                                    if (possible.size() == 1) {
-                                        JoJoWriteController.getInstance().appendToOutput(
-                                                Compiler.compileToHexString(possible.get(0), addressStr, instructionStr) + '\n');
-                                    }
-                                    setStyleClass(startIndex + 9, startIndex + 9 + instructionStr.length(), KEYWORD_TEXT);
-                                    setStyleClass(startIndex + 8, startIndex + 8, BASIC_TEXT);
-                                }
-                            }
-                        }
-                    }
+                    processAssemblyParagraph(i, paragraph, startIndex);
                 }
+
+                startIndex += paraLength + 1; // Account for omitted \n
+            }
+        }
+
+        Compiler.displayErrors();
+
+        long delta = (System.currentTimeMillis() - ms);
+        perfAvg.add(delta);
+        System.out.println("Finished AssemblyArea#update() at: " + delta + "ms, average: " + perfAvg.stream().mapToLong(i -> i).sum() / perfAvg.size() + ".");
+    }
+
+    private void processAssemblyParagraph(int lineIndex, String paragraph, int startIndex) {
+        String[] tokens = paragraph.split(" ");
+        final String addressColonInstructionToken = tokens[0]; // 06123456:TEST
+
+        if (addressColonInstructionToken.length() < 9) {
+            Compiler.raiseError("Invalid address prefix: " + addressColonInstructionToken);
+            return;
+        }
+
+        final String addressStr = addressColonInstructionToken.substring(0, 8);
+        if (!JJWUtils.isHexadecimal(addressStr)) {
+            Compiler.raiseError("Invalid character in Hex literal");
+            return;
+        }
+
+        if (Integer.valueOf(addressStr, 16) % 2 != 0) {
+            Compiler.raiseError("Unaligned address: " + addressStr);
+            return;
+        }
+
+        int endOfAddressIndex = startIndex + 8;
+        setStyleClass(startIndex, endOfAddressIndex, ADDRESS_TEXT);
+        if (paragraph.charAt(8) == ':') {
+            String instructionStr = paragraph.substring(9);
+            if (instructionStr.isEmpty()) return;
+
+            setStyleClass(endOfAddressIndex, endOfAddressIndex + 1, BASIC_TEXT);
+            int keywordLength = instructionStr.indexOf(' ');
+            int parameterLength = instructionStr.length() - keywordLength;
+            int endOfKeywordIndex = endOfAddressIndex + 1 + keywordLength;
+            setStyleClass(endOfAddressIndex + 1, endOfKeywordIndex, KEYWORD_TEXT);
+            setStyleClass(endOfKeywordIndex, endOfKeywordIndex + parameterLength, PARAMETER_TEXT);
+
+            var possible = Compiler.getPossibleInstructions(addressStr, instructionStr).toList();
+            if (possible.size() == 1) {
+                Compiler.clearErrors(lineIndex);
+                JoJoWriteController.getInstance().appendToOutput(
+                        Compiler.compileToHexString(possible.get(0), addressStr, instructionStr) + '\n');
             }
 
-            startIndex += paraLength + 1; // Account for omitted \n
+            for (int j = keywordLength; j < instructionStr.length(); j++) {
+                String style = styleMap.get(instructionStr.charAt(j));
+                if (style != null)
+                    setStyleClass(endOfAddressIndex + 1 + j, endOfAddressIndex + 2 + j, style);
+            }
         }
     }
 

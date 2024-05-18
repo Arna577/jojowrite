@@ -7,14 +7,13 @@ import net.arna.jojowrite.asm.instruction.*;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Stream;
 
 public class Compiler {
     private static final List<Instruction> instructions = new ArrayList<>();
-    private static final List<String> errors = new ArrayList<>();
+    private static final Map<Integer, ArrayList<String>> errors = new HashMap<>();
+    private static ArrayList<String> errorLog;
     private static TextArea errorOutputArea;
 
     public static Stream<Instruction> getPossibleInstructions(String addressStr, String instructionStr) {
@@ -38,9 +37,30 @@ public class Compiler {
         errorOutputArea.clear();
     }
 
+    /**
+     * Opens a new error log for:
+     * @param index
+     */
+    public static void openErrorLog(int index) {
+        errorLog = new ArrayList<>();
+        errors.put(index, errorLog);
+    }
+
     public static void raiseError(String err) {
-        errors.add(err);
-        errorOutputArea.appendText(errors.size() + ". - " + err + '\n');
+        if (errorLog == null) return;
+        errorLog.add(err);
+    }
+
+    public static void clearErrors(int index) {
+        errors.remove(index);
+    }
+
+    public static void displayErrors() {
+        errors.forEach(
+                (key, value) -> value.forEach(
+                        error -> errorOutputArea.appendText("Ln. " + (key + 1) + ": " + error + '\n')
+                )
+        );
     }
 
     public static void setErrorOutputArea(TextArea errorOutputArea) {

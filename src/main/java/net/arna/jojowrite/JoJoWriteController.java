@@ -137,7 +137,7 @@ public class JoJoWriteController implements Initializable {
 
                 case ASSEMBLY -> outWriter.append(assemblyArea.getText());
 
-                case PATCH -> throw new UnsupportedOperationException("Not implemented");
+                case PATCH -> outWriter.append(patchArea.getText());
 
                 case ROM -> System.out.println("Attempted to write to ROM file! Writing to ROMs should be done via patching.");
             }
@@ -505,6 +505,10 @@ public class JoJoWriteController implements Initializable {
         dialog.initStyle(StageStyle.UNDECORATED);
         dialog.getDialogPane().getStyleClass().add("help-dialog");
         dialog.showAndWait();
+    }
+
+    public void showHotkeyHelp(ActionEvent actionEvent) {
+
     }
 
     private Alert createStyledAlert(Alert.AlertType type) {
