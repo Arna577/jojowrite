@@ -1,7 +1,5 @@
 package net.arna.jojowrite.asm.instruction;
 
-import javafx.util.Pair;
-
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -35,14 +33,13 @@ public class Format {
             Part.MatchData matchData = part.matches(instructionStr, ctx);
             if (!matchData.match()) return false;
             instructionStr = matchData.remaining();
-            if (instructionStr.equals("")) return true; // Partial match
         }
         return true; // Full match
     }
 
-    public Map<Fragment, String> mapFragments(String addressStr, String instructionStr) {
+    public Map<Fragment, Character> mapFragments(String addressStr, String instructionStr) {
         CompilationContext ctx = new CompilationContext(this, dispMutation, addressStr);
-        Map<Fragment, String> out = new HashMap<>();
+        Map<Fragment, Character> out = new HashMap<>();
 
         for (Part part : parts) {
             // Procedurally consumes the string as the pattern check continues.
@@ -50,7 +47,7 @@ public class Format {
             if (!matchData.match()) throw new IllegalStateException("Trying to mapFragments for non-matching instruction!");
             instructionStr = matchData.remaining();
             matchData.fragmentHexDigitMap().ifPresent(out::putAll);
-            if (instructionStr.equals("")) return out; // Partial match
+            if (instructionStr.isEmpty()) return out; // Partial match
         }
         return out;
     }

@@ -26,7 +26,7 @@ import java.util.ArrayList;
  *  selecting amount of ROM to put into page
  *  help menus
  *  ROMTextArea width snapping
- *  patch files
+ *  patching
  *  select overwrite from ROM red text
  */
 public class Overwrite extends VBox {
@@ -41,7 +41,7 @@ public class Overwrite extends VBox {
      */
     private OverwriteField overwriteField;
     /**
-     * May contain most characters, used by the user to annotate what this Overwrite does.
+     * May contain most characters, used by the user to annotate what this {@link Overwrite} does.
      */
     private TextField commentField;
     private Button showInROM;
@@ -88,7 +88,7 @@ public class Overwrite extends VBox {
         else overwrites.add(this);
     }
 
-    private void load() {
+    void load() {
         if (loaded) throw new IllegalStateException("Tried to load Overwrite more than once!");
         if (overwrites == null) throw new IllegalStateException("Tried to load Overwrite without an assigned OverwriteBox!");
         HBox overwriteAndOptions = new HBox();
@@ -97,7 +97,12 @@ public class Overwrite extends VBox {
         addressField.getStyleClass().add("address");
         addressField.setPromptText("Address");
         addressField.setMaxWidth(98.0);
-        addressField.setOnKeyTyped(keyEvent -> separateBytes());
+        addressField.setOnKeyTyped(
+                keyEvent -> {
+                    separateBytes();
+                    JoJoWriteController.getInstance().refreshOverwrites();
+                }
+        );
 
         overwriteField = new OverwriteField(this);
         overwriteField.setText(bufferOverwriteText);
@@ -125,8 +130,9 @@ public class Overwrite extends VBox {
 
         getChildren().addAll(overwriteAndOptions, commentField);
 
-        loaded = true;
+        separateBytes();
 
+        loaded = true;
         //System.out.println("Loaded new overwrite; " + this);
     }
 
@@ -176,23 +182,38 @@ public class Overwrite extends VBox {
         return bufferOverwriteText;
     }
 
+    public String getCommentText() {
+        if (loaded) return commentField.getText();
+        return bufferCommentText;
+    }
+
     @Override
     public String toString() {
-        if (loaded) return addressField.getText() + ':' + overwriteField.getText() + '\n' + commentField.getText();
-        return "Unloaded Overwrite@" + hashCode();
+        return getAddressText() + ';' + getOverwriteText() + ';' + getCommentText();
+    }
+
+    public void bufferText(String address, String overwrite, String comment) {
+        bufferCommentText = comment;
+        bufferOverwriteText = overwrite;
+        bufferAddressText = address;
     }
 
     private String bufferAddressText = null;
     private String bufferOverwriteText = null;
     private String bufferCommentText = null;
-    public static Overwrite fromStrings(String addressAndOverwrite, String comment) {
+    public static Overwrite fromString(String raw) {
         //long ms = System.currentTimeMillis();
         Overwrite overwrite = new Overwrite();
-        int colonIndex = addressAndOverwrite.indexOf(':');
-        if (colonIndex == -1) throw new IllegalArgumentException("Invalid string for generating Overwrite; " + addressAndOverwrite);
-        overwrite.bufferAddressText = addressAndOverwrite.substring(0, colonIndex);
-        overwrite.bufferOverwriteText = addressAndOverwrite.substring(colonIndex + 1);
-        overwrite.bufferCommentText = comment;
+        String[] content = raw.split(";");
+        if (content.length > 1) {
+            overwrite.bufferAddressText = content[0];
+            overwrite.bufferOverwriteText = content[1];
+            if (content.length > 2) {
+                overwrite.bufferCommentText = content[2];
+            }
+        } else {
+            throw new IllegalArgumentException("Invalid string for generating Overwrite; " + raw);
+        }
         //System.out.println("COMPLETE; took " + (System.currentTimeMillis() - ms) + "ms");
         return overwrite;
     }

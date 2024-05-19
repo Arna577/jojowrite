@@ -8,12 +8,9 @@ import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import net.arna.jojowrite.JJWUtils.FileType;
 import net.arna.jojowrite.asm.Compiler;
-import org.fxmisc.richtext.CodeArea;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InvalidObjectException;
-import java.net.URL;
 
 public class JoJoWriteApplication extends Application {
     private static Stage stage;

@@ -11,6 +11,7 @@
     -jjw-text-color-temp: #F9F979;
     -jjw-text-color: #A9A9E9;
     -jjw-highlight-text-color: #FFFFFF;
+    -jjw-parameter-text-color: #7FFFD4;
 
     -fx-text-fill: -jjw-text-color;
 }
@@ -23,15 +24,15 @@
 
 /* Text Styling */
 .overwritten-text {
-    -fx-fill: -jjw-text-color-overwritten;
+    -fx-fill: -jjw-text-color-overwritten !important;
 }
 
 .temp-overwrite-text {
-    -fx-fill: -jjw-text-color-temp;
+    -fx-fill: -jjw-text-color-temp !important;
 }
 
 .basic-text {
-    -fx-fill: -jjw-text-color;
+    -fx-fill: -jjw-text-color !important;
 }
 
 /* Overwrite Address Field */
@@ -104,6 +105,13 @@
 .code-area .text {
     -fx-font-family: "Courier Prime";
     -fx-font-size: 16;
+    -fx-fill: -jjw-text-color;
+}
+
+.assembly-area .text {
+    -fx-font-family: "Courier Prime";
+    -fx-font-size: 16;
+    -fx-fill: -jjw-parameter-text-color;
 }
 
 .caret {
@@ -146,24 +154,26 @@
 }
 
 /* Assembly */
+
+
 .keyword-text {
-    -fx-fill: #BB33DD;
+    -fx-fill: #BB33DD !important;
 }
 
 .parameter-text {
-    -fx-fill: #7FFFD4;
+    -fx-fill: -jjw-parameter-text-color !important;
 }
 
 .address-text {
-    -fx-fill: -jjw-highlight-text-color;
+    -fx-fill: -jjw-highlight-text-color !important;
 }
 
 .comment-text {
-    -fx-fill: #337799;
+    -fx-fill: #337799 !important;
 }
 
 .at-symbol {
-    -fx-fill: #FFA500;
+    -fx-fill: #FFA500 !important;
 }
 
 /* Scroll Pane */

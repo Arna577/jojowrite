@@ -1,14 +1,19 @@
 package net.arna.jojowrite;
 
 import javafx.application.Platform;
-import javafx.event.ActionEvent;
+import javafx.beans.InvalidationListener;
+import javafx.beans.binding.Binding;
+import javafx.beans.value.ChangeListener;
+import javafx.collections.ObservableList;
+import javafx.event.EventHandler;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.Node;
 import javafx.scene.control.*;
+import javafx.scene.input.DragEvent;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
 import javafx.stage.StageStyle;
-import javafx.util.Pair;
 import net.arna.jojowrite.JJWUtils.FileType;
 import net.arna.jojowrite.asm.Compiler;
 import net.arna.jojowrite.node.*;
@@ -27,7 +32,7 @@ public class JoJoWriteController implements Initializable {
 
     private RandomAccessFile romFile;
 
-    public FileMap files = new FileMap(this);
+    public final FileMap files = new FileMap(this);
 
     public FileType openType = null;
 
@@ -84,25 +89,22 @@ public class JoJoWriteController implements Initializable {
 
         Set<Node> assemblyNodes = Set.of(errorScrollPane, assemblyScrollPane, outputScrollPane);
         Set<Node> overwriteNodes = Set.of(romTextBox, overwriteScrollPane, overwrites, overwriteControls);
-        Set<Node> romNodes = Set.of(romTextBox);
+        //Set<Node> romNodes = Set.of(romTextBox);
         Set<Node> patchNodes = Set.of(patchControls, patchScrollPane);
 
         fileTypeNodeMap = Map.of(
                 FileType.ASSEMBLY, assemblyNodes,
                 FileType.PATCH, patchNodes,
-                FileType.OVERWRITE, overwriteNodes,
-                FileType.ROM, romNodes
+                FileType.OVERWRITE, overwriteNodes
+                //FileType.ROM, romNodes
         );
 
         romScrollBar.valueProperty().addListener(
-            (observable, oldValue, newValue) -> {
-                try {
-                    displayROMAt(newValue.intValue());
-                } catch (IOException e) {
-                    JJWUtils.printException(e, "Something went wrong while displaying ROM.");
-                }
-            }
+                (observable, oldValue, newValue) -> displayROMAt(newValue.intValue())
         );
+
+        //todo: figure out VirtualizedScrollPane hooks
+        assemblyScrollPane.addEventHandler(DragEvent.ANY, event -> assemblyArea.updateVisualsOnly());
 
         overwriteLoadTimer.scheduleAtFixedRate(new OverwriteLoadTask(), 0, 2);
         overwrites.assignParentPane(overwriteScrollPane);
@@ -281,16 +283,16 @@ public class JoJoWriteController implements Initializable {
         @Override
         public void run() {
             Platform.runLater(() -> {
-                Pair<String, String> pair = overwriteStringPairs.poll();
-                if (pair == null) return;
-                Overwrite.fromStrings(pair.getKey(), pair.getValue()).assignOverwriteBox(overwrites, false);
+                String raw = overwriteStringPairs.poll();
+                if (raw == null) return;
+                Overwrite.fromString(raw).assignOverwriteBox(overwrites, false);
                 overwrites.layout();
                 overwrites.updateVisibility();
             });
         }
     }
 
-    public static Queue<Pair<String, String>> overwriteStringPairs = new LinkedList<>();
+    public static final Queue<String> overwriteStringPairs = new LinkedList<>();
     public void openOverwriteFile() {
         if (selectOverwriteFile() == null)
             return;
@@ -302,7 +304,7 @@ public class JoJoWriteController implements Initializable {
             BufferedReader bufferedReader = new BufferedReader(fileReader);
             String line;
             while ((line = bufferedReader.readLine()) != null)
-                overwriteStringPairs.add(new Pair<>(line, bufferedReader.readLine()));
+                overwriteStringPairs.add(line);
             bufferedReader.close();
         } catch (Exception e) {
             JJWUtils.printException(e, "An error occurred while opening overwrite file.");
@@ -395,8 +397,16 @@ public class JoJoWriteController implements Initializable {
     }
 
     public void newOverwrite() {
-        new Overwrite(overwrites);
+        createOverwrite("", "", "");
+    }
+
+    public void createOverwrite(String addressText, String overwriteText, String commentText) {
+        overwriteScrollPane.setVvalue(0.0);
+        Overwrite overwrite = new Overwrite(overwrites);
+        overwrite.bufferText(addressText, overwriteText, commentText);
         overwrites.updateVisibility();
+        refreshOverwrites();
+        overwrite.focus();
     }
 
     public void showOverwritesAsLUA() {
@@ -416,9 +426,9 @@ public class JoJoWriteController implements Initializable {
     }
 
     // ADDRESS INCREMENTS PER BYTE (OR TWO HEX DIGITS)
-    private static final int MAX_ROM_DISPLAY_LENGTH = 512; //4096
+    private static final int MAX_ROM_DISPLAY_LENGTH = 1024; //4096
     // Self-explanatory.
-    private void displayROMAt(int address) throws IOException {
+    private void displayROMAt(int address) {
         if (romFile == null) return;
 
         romArea.setAddress(address);
@@ -500,14 +510,14 @@ public class JoJoWriteController implements Initializable {
                         It is also possible to select a segment of a temporary overwrite to extract, requiring at least two characters to be selected.
                         
                         When placed inside a .overwrite file, they take the form of:
-                        [ADDRESS]:[DATA]\\n[COMMENT]\\n"""
+                        [ADDRESS];[DATA];[COMMENT]"""
         );
         dialog.initStyle(StageStyle.UNDECORATED);
         dialog.getDialogPane().getStyleClass().add("help-dialog");
         dialog.showAndWait();
     }
 
-    public void showHotkeyHelp(ActionEvent actionEvent) {
+    public void showHotkeyHelp() {
 
     }
 

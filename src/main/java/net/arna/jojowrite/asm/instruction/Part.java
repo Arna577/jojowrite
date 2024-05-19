@@ -28,6 +28,7 @@ public final class Part {
     private final String segment;
     private final ArgumentType argumentType;
     private final List<Fragment> fragments;
+    private final int fragSize;
     private int dispMax = 0x00;
     private String dispZeroPadding = null;
 
@@ -35,11 +36,21 @@ public final class Part {
         this.type = type;
         this.segment = segment;
         this.argumentType = argumentType;
+
         this.fragments = fragments;
 
-        if (argumentType == ArgumentType.DISPLACEMENT || argumentType == ArgumentType.LABEL) {
-            dispMax = ( 1 << (fragments.size() * 4) ) - 1;
-            dispZeroPadding = "0".repeat(fragments.size());
+        if (fragments == null) {
+            fragSize = 0;
+        } else {
+            fragSize = fragments.size();
+
+            if (argumentType == ArgumentType.REGISTER && fragSize != 1)
+                throw new IllegalArgumentException("Parts of ArgumentType.REGISTER must have only one fragment!");
+
+            if (argumentType == ArgumentType.DISPLACEMENT || argumentType == ArgumentType.LABEL) {
+                dispMax = ( 1 << (fragSize * 4) ) - 1;
+                dispZeroPadding = "0".repeat(fragSize);
+            }
         }
     }
 
@@ -76,7 +87,7 @@ public final class Part {
         return new Part(PartType.VARIABLE, null, argumentType, fragments);
     }
 
-    public record MatchData(boolean match, String remaining, Optional<Map<Fragment, String>> fragmentHexDigitMap) {}
+    public record MatchData(boolean match, String remaining, Optional<Map<Fragment, Character>> fragmentHexDigitMap) {}
 
     // Can't parse String by ref
     public MatchData matches(String in, Format.CompilationContext context) {
@@ -86,37 +97,40 @@ public final class Part {
             }  //else return raiseCompilerError(format, "Invalid instruction, expected: " + segment);
         }
 
-        Map<Fragment, String> out = new HashMap<>();
-
         if (type == PartType.VARIABLE) {
             Format format = context.format();
+            Map<Fragment, Character> out = new HashMap<>();
             
             switch (argumentType) {
                 case LABEL -> {
                     if (in.startsWith("$")) { in = in.substring(1); } // Optional $ at start of label
 
                     if (in.length() == 8) {
-                        int pointerAddress = Integer.valueOf(in, 16);
-                        // + 4 is a forced offset due to it being impractical to jump to the direct next instruction
-                        int instructionAddress = Integer.valueOf(context.address(), 16) + 4;
-                        if (instructionAddress > pointerAddress) {
-                            return raiseCompilerError(format, "Non-referential branching instruction cannot jump back");
-                        } else {
-                            if (pointerAddress % 2 == 0) {
-                                int offset = pointerAddress - instructionAddress;
-                                offset /= context.displacementMutation().getModifier();
-                                if (offset > dispMax) {
-                                    return raiseCompilerError(format, "Cannot jump that far");
-                                }
-                                String offsetStr = Integer.toString(offset, 16);
-                                offsetStr = (dispZeroPadding + offsetStr).substring(offsetStr.length());
-                                for (int i = 0; i < fragments.size(); i++) {
-                                    out.put(fragments.get(i), offsetStr.substring(i, i + 1));
-                                }
-                                return new MatchData(true, "", Optional.of(out));
+                        try {
+                            int pointerAddress = Integer.valueOf(in, 16);
+                            // + 4 is a forced offset due to it being impractical to jump to the direct next instruction
+                            int instructionAddress = Integer.valueOf(context.address(), 16) + 4;
+                            if (instructionAddress > pointerAddress) {
+                                return raiseCompilerError(format, "Non-referential branching instruction cannot jump back");
                             } else {
-                                return raiseCompilerError(format, "Cannot branch to unaligned address");
+                                if (pointerAddress % 2 == 0) {
+                                    int offset = pointerAddress - instructionAddress;
+                                    offset /= context.displacementMutation().getModifier();
+                                    if (offset > dispMax) {
+                                        return raiseCompilerError(format, "Cannot jump that far");
+                                    }
+                                    String offsetStr = Integer.toString(offset, 16);
+                                    offsetStr = (dispZeroPadding + offsetStr).substring(offsetStr.length());
+                                    for (int i = 0; i < fragSize; i++) {
+                                        out.put(fragments.get(i), offsetStr.charAt(i));
+                                    }
+                                    return new MatchData(true, "", Optional.of(out));
+                                } else {
+                                    return raiseCompilerError(format, "Cannot branch to unaligned address");
+                                }
                             }
+                        } catch (NumberFormatException e) {
+                            return raiseCompilerError(format, "Invalid character in Hex literal");
                         }
                     } else {
                         return raiseCompilerError(format, "Invalid pointer");
@@ -126,17 +140,17 @@ public final class Part {
                 case DISPLACEMENT -> { // 1 or 2 bytes
                     if (in.startsWith("$")) { in = in.substring(1); } // Optional $ at start of displacement
 
-                    int fragSize = fragments.size();
                     DisplacementMutation dispMutation = context.displacementMutation();
 
                     if (dispMutation == DisplacementMutation.NONE) { // Guaranteed 1 byte
                         if (in.length() >= fragSize) { // "8F" in $8F
                             for (int i = 0; i < fragSize; i++) {
-                                String digit = String.valueOf(in.charAt(i));
-                                if (!JJWUtils.isHexadecimal(digit)) {
+                                char digit = in.charAt(i);
+                                if (JJWUtils.isHexadecimal(digit)) {
+                                    out.put(fragments.get(i), digit);
+                                } else {
                                     return raiseCompilerError(format, "Invalid character in Hex literal");
                                 }
-                                out.put(fragments.get(i), digit);
                             }
                             return new MatchData(true, in.substring(fragSize), Optional.of(out));
                         }
@@ -145,10 +159,11 @@ public final class Part {
                             String displacementStr = "";
                             for (int i = 0; i < fragSize; i++) {
                                 String byteStr = in.substring(i * 2, i * 2 + 2);
-                                if (!JJWUtils.isHexadecimal(byteStr)) {
+                                if (JJWUtils.isHexadecimal(byteStr)) {
+                                    displacementStr += byteStr;
+                                } else {
                                     return raiseCompilerError(format, "Invalid character in Hex literal");
                                 }
-                                displacementStr += byteStr;
                             }
 
                             int dispValue = Integer.valueOf(displacementStr, 16);
@@ -164,7 +179,7 @@ public final class Part {
                                 displacementValueStr = (dispZeroPadding + displacementValueStr).substring(displacementValueStr.length());
                             }
                             for (int i = 0; i < fragSize; i++) {
-                                out.put(fragments.get(i), displacementValueStr.substring(i, i + 1));
+                                out.put(fragments.get(i), displacementValueStr.charAt(i));
                             }
 
                             return new MatchData(true, in.substring(fragSize * 2), Optional.of(out));
@@ -174,16 +189,16 @@ public final class Part {
                     }
                 }
 
-                case IMMEDIATE -> {
-                    int fragSize = fragments.size();
+                case IMMEDIATE -> { // Always 1 byte long
                     if (in.startsWith("$")) { // "$" in $8F
                         if (in.length() > fragSize) { // "8F" in $8F
                             for (int i = 0; i < fragSize; i++) {
-                                String digit = String.valueOf(in.charAt(1 + i));
-                                if (!JJWUtils.isHexadecimal(digit)) {
+                                char digit = in.charAt(i + 1);
+                                if (JJWUtils.isHexadecimal(digit)) {
+                                    out.put(fragments.get(i), digit);
+                                } else {
                                     return raiseCompilerError(format, "Invalid character in Hex literal");
                                 }
-                                out.put(fragments.get(i), digit);
                             }
                             return new MatchData(true, in.substring(1 + fragSize), Optional.of(out));
                         } else {
@@ -195,11 +210,11 @@ public final class Part {
                 }
 
                 case REGISTER -> {
-                    if (in.startsWith("R")) { // "R" in R0
-                        if (in.length() > 1) {
+                    if (in.length() > 1) {
+                        if (in.startsWith("R")) { // "R" in R0
                             int cutoff = 2;
                             String registerNumber = in.substring(1, cutoff);
-                            if (JJWUtils.isDecimal(registerNumber)) {
+                            try {
                                 if (in.length() > 2) { // Detect second decimal digit
                                     String nextCharacter = in.substring(2, 3);
                                     if (JJWUtils.isDecimal(nextCharacter)) {
@@ -211,13 +226,13 @@ public final class Part {
                                 if (registerId > 0x0F) {
                                     return raiseCompilerError(format, "Invalid Register ID");
                                 }
-                                out.put(fragments.get(0), JJWUtils.HEX_DIGITS.substring(registerId, registerId + 1));
+                                out.put(fragments.get(0), JJWUtils.HEX_DIGITS.charAt(registerId));
                                 return new MatchData(true, in.substring(cutoff), Optional.of(out));
-                            } else {
+                            } catch (NumberFormatException e) {
                                 return raiseCompilerError(format, "Invalid character in Decimal literal");
                             }
-                        }
-                    } //else return raiseCompilerError(format, "Expected R at start of register reference");
+                        } //else return raiseCompilerError(format, "Expected R at start of register reference");
+                    }
                 }
             }
         }

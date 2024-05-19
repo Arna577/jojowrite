@@ -56,12 +56,7 @@ public class ROMTextArea extends StyleClassedTextArea {
                     initPos = getSelection().getEnd();
                 }
 
-                Overwrite overwrite = new Overwrite(JoJoWriteController.getInstance().overwrites);
-                overwrite.setAddressText(Integer.toHexString(address + endPos / 2));
-                overwrite.setOverwriteText(getText(endPos, initPos));
-                overwrite.focus();
-
-                JoJoWriteController.getInstance().refreshOverwrites();
+                JoJoWriteController.getInstance().createOverwrite(Integer.toHexString(address + endPos / 2), getText(endPos, initPos), "");
 
                 event.consume();
             }

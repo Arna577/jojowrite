@@ -103,7 +103,7 @@ public class Compiler {
         }
     }
 
-    public static Set<Keyword> keywords = Set.of(
+    public static final Set<Keyword> keywords = Set.of(
             new Keyword("Rm", "m", Part.ArgumentType.REGISTER),
             new Keyword("Rn", "n", Part.ArgumentType.REGISTER),
             new Keyword("imm", "i", Part.ArgumentType.IMMEDIATE),

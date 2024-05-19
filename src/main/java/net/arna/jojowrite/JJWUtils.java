@@ -19,8 +19,11 @@ public interface JJWUtils {
     String PATCH_FILE_EXTENSION = ".patch";
 
     Pattern hex = Pattern.compile("[0-9a-fA-F]+");
-    static boolean isHexadecimal(String text) {
+    static boolean isHexadecimal(CharSequence text) {
         return hex.matcher(text).matches();
+    }
+    static boolean isHexadecimal(char c) {
+        return (c >= 'a' && c <= 'f') || (c >= '0' && c <= '9');
     }
 
     Pattern dec = Pattern.compile("[0-9]+");

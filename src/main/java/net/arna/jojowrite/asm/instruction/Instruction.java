@@ -36,8 +36,7 @@ public final class Instruction {
         return "Instruction@" + Integer.toHexString(hashCode()) + "{ " + format.toString() + " -> " + out + " }";
     }
 
-    //todo: apply disp fuckery to .W and .L instructions
-    public String compileToHexString(Map<Fragment, String> fragmentData) {
+    public String compileToHexString(Map<Fragment, Character> fragmentData) {
         StringBuilder out = new StringBuilder();
         for (Fragment fragment : fragments) {
             if (fragment.getType() == Fragment.FragmentType.STATIC) {

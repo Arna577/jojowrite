@@ -9,16 +9,15 @@ import net.arna.jojowrite.asm.instruction.Instruction;
 import org.fxmisc.richtext.CodeArea;
 import org.fxmisc.richtext.LineNumberFactory;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static net.arna.jojowrite.TextStyles.*;
 
 public class AssemblyArea extends CodeArea {
     public AssemblyArea() {
-        setTextInsertionStyle(Collections.singleton(BASIC_TEXT));
+        setTextInsertionStyle(Collections.singleton(PARAMETER_TEXT));
 
         setParagraphGraphicFactory(LineNumberFactory.get(this));
         setContextMenu(new DefaultContextMenu());
@@ -34,12 +33,12 @@ public class AssemblyArea extends CodeArea {
                             String lastParagraph = getText(paragraphID);
                             if (lastParagraph.length() >= 8) {
                                 String address = lastParagraph.substring(0, 8);
-                                if (JJWUtils.isHexadecimal(address)) {
-                                    int lastAddress = Integer.valueOf(address, 16);
+                                try {
+                                    int lastAddress = Integer.parseUnsignedInt(address, 16);
                                     String nextAddress = Integer.toString(lastAddress + 2, 16);
                                     nextAddress = ("00000000" + nextAddress).substring(nextAddress.length());
-                                    insert(getCaretPosition(), nextAddress + ':', BASIC_TEXT);
-                                }
+                                    insertText(getCaretPosition(), nextAddress + ':');
+                                } catch (NumberFormatException ignored) {}
                             }
                         }
                     }
@@ -57,25 +56,62 @@ public class AssemblyArea extends CodeArea {
             '#', TEMP_OVERWRITE_TEXT
     );
 
-    List<Long> perfAvg = new ArrayList<>();
-    public void update() {
-        long ms = System.currentTimeMillis();
-
-        // getParagraphs() causes an IllegalAccessError due to some insane fucking module linking issue
+    public void updateVisualsOnly() {
         String[] paragraphs = getText().split("\n");
         int startIndex = 0;
+        final int firstVisibleParagraphIndex = firstVisibleParToAllParIndex();
+        final int lastVisibleParagraphIndex = lastVisibleParToAllParIndex();
+
         for (int i = 0; i < paragraphs.length; i++) {
             String paragraph = paragraphs[i];
             if (paragraph.isEmpty()) {
                 startIndex++;
             } else {
                 int paraLength = paragraph.length();
-                Compiler.openErrorLog(i);
+
+                if (firstVisibleParagraphIndex <= i && i <= lastVisibleParagraphIndex) { // Visible
+                    if (paragraph.startsWith("//")) { // Comments
+                        setStyleClass(startIndex, startIndex + paraLength, COMMENT_TEXT);
+                    } else { // Assembly
+                        styleAssemblyParagraph(startIndex, paragraph);
+                    }
+                }
+
+                startIndex += paraLength + 1; // Account for omitted \n
+            }
+        }
+    }
+
+    final List<Long> perfAvg = new ArrayList<>();
+    private static final StringBuilder outputBuilder = new StringBuilder();
+    public void update() {
+        long ms = System.currentTimeMillis();
+
+        outputBuilder.setLength(0);
+
+        // getParagraphs() causes an IllegalAccessError due to some insane fucking module linking issue
+        String[] paragraphs = getText().split("\n");
+        int startIndex = 0;
+        final int firstVisibleParagraphIndex = firstVisibleParToAllParIndex();
+        final int lastVisibleParagraphIndex = lastVisibleParToAllParIndex();
+
+        for (int i = 0; i < paragraphs.length; i++) {
+            String paragraph = paragraphs[i];
+            if (paragraph.isEmpty()) {
+                startIndex++;
+            } else {
+                int paraLength = paragraph.length();
+
+                boolean visible = firstVisibleParagraphIndex <= i && i <= lastVisibleParagraphIndex;
 
                 if (paragraph.startsWith("//")) { // Comments
-                    setStyleClass(startIndex, startIndex + paraLength, COMMENT_TEXT);
+                    if (visible)
+                        setStyleClass(startIndex, startIndex + paraLength, COMMENT_TEXT);
                 } else { // Assembly
-                    processAssemblyParagraph(i, paragraph);
+                    Compiler.openErrorLog(i);
+                    boolean success = processAssemblyParagraph(i, paragraph);
+                    if (visible && success)
+                        styleAssemblyParagraph(startIndex, paragraph);
                 }
 
                 startIndex += paraLength + 1; // Account for omitted \n
@@ -83,42 +119,72 @@ public class AssemblyArea extends CodeArea {
         }
 
         Compiler.displayErrors();
+        JoJoWriteController.getInstance().appendToOutput(outputBuilder.toString());
 
         long delta = (System.currentTimeMillis() - ms);
         perfAvg.add(delta);
         System.out.println("Finished AssemblyArea#update() at: " + delta + "ms, average: " + perfAvg.stream().mapToLong(i -> i).sum() / perfAvg.size() + ".");
     }
 
-    private void processAssemblyParagraph(int lineIndex, String paragraph) {
+    private void styleAssemblyParagraph(int startIndex, String paragraph) {
+        if (paragraph.length() < 9) return;
+        setStyleClass(startIndex, startIndex + 8, ADDRESS_TEXT);
+        final String instructionStr = paragraph.substring(9);
+
+        setStyleClass(startIndex + 8, startIndex + 9, BASIC_TEXT);
+
+        final int keywordEndIndex = instructionStr.indexOf(' ');
+        if (keywordEndIndex == -1) {
+            setStyleClass( startIndex + 9, startIndex + paragraph.length(), KEYWORD_TEXT);
+            return;
+        } else {
+            setStyleClass( startIndex + 9, startIndex + 9 + keywordEndIndex, KEYWORD_TEXT);
+        }
+
+        for (int i = keywordEndIndex; i < instructionStr.length(); i++) {
+            String style = styleMap.get(instructionStr.charAt(i));
+            if (style == null) continue;
+            int charIndex = startIndex + 9 + i;
+            setStyleClass(charIndex, charIndex + 1, style);
+        }
+    }
+
+    /**
+     * Gets all possible instructions for this paragraph.
+     * If there is only one, it is compiled and put in the {@link JoJoWriteController#output}
+     * @return Whether the paragraph contains enough data to try to compile.
+     */
+    private boolean processAssemblyParagraph(int lineIndex, String paragraph) {
         String[] tokens = paragraph.split(":");
         final String addressStr = tokens[0]; // 06123456:TEST
 
         if (addressStr.length() < 8) {
             Compiler.raiseError("Invalid address length: " + addressStr);
-            return;
+            return false;
         }
 
-        if (!JJWUtils.isHexadecimal(addressStr)) {
+        try {
+            if (Integer.parseUnsignedInt(addressStr, 16) % 2 != 0) {
+                Compiler.raiseError("Unaligned address: " + addressStr);
+                return false;
+            }
+        } catch (NumberFormatException e) {
             Compiler.raiseError("Invalid character in Hex literal");
-            return;
+            return false;
         }
 
-        if (Integer.valueOf(addressStr, 16) % 2 != 0) {
-            Compiler.raiseError("Unaligned address: " + addressStr);
-            return;
-        }
-
-        if (tokens.length < 2) return;
+        if (tokens.length < 2) return false;
 
         final String instructionStr = tokens[1];
-        if (instructionStr.isEmpty()) return;
+        if (instructionStr.isEmpty()) return false;
 
-        List<Instruction> possible = Compiler.getPossibleInstructions(addressStr, instructionStr).toList();
+        final List<Instruction> possible = Compiler.getPossibleInstructions(addressStr, instructionStr).toList();
         if (possible.size() == 1) {
             Compiler.clearErrors(lineIndex);
-            JoJoWriteController.getInstance().appendToOutput(
-                    Compiler.compileToHexString(possible.get(0), addressStr, instructionStr) + '\n');
+            outputBuilder.append(Compiler.compileToHexString(possible.get(0), addressStr, instructionStr)).append('\n');
         }
+
+        return true;
     }
 
     private static class DefaultContextMenu extends ContextMenu

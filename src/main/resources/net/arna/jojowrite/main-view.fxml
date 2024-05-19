@@ -70,7 +70,7 @@
         <StackPane minWidth="320">
             <VirtualizedScrollPane fx:id="assemblyScrollPane" styleClass="scroll-pane">
                 <content>
-                    <AssemblyArea fx:id="assemblyArea" styleClass="code-area"/>
+                    <AssemblyArea fx:id="assemblyArea" styleClass="assembly-area"/>
                 </content>
             </VirtualizedScrollPane>
 

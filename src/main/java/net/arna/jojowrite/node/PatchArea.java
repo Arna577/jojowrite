@@ -1,7 +1,6 @@
 package net.arna.jojowrite.node;
 
 import net.arna.jojowrite.JJWUtils;
-import net.arna.jojowrite.TextStyles;
 import org.fxmisc.richtext.StyleClassedTextArea;
 
 import java.io.File;
@@ -10,7 +9,7 @@ import java.util.regex.Pattern;
 import static net.arna.jojowrite.TextStyles.*;
 
 public class PatchArea extends StyleClassedTextArea {
-    Pattern SLASH = Pattern.compile("/");
+    final Pattern SLASH = Pattern.compile("/");
 
     public PatchArea() {
         setOnKeyTyped(event -> {
