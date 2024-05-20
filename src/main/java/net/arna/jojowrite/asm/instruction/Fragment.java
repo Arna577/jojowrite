@@ -3,7 +3,7 @@ package net.arna.jojowrite.asm.instruction;
 import net.arna.jojowrite.JJWUtils;
 
 /**
- * Represents one half of a byte within a compiled Assembly instruction.
+ * Represents one half of a byte within a compiled Assembly {@link Instruction}.
  */
 public class Fragment {
     private final FragmentType type;
@@ -27,6 +27,10 @@ public class Fragment {
         return type;
     }
 
+    /**
+     * Type of fragment;
+     * STATIC represents a single hex digit, VARIABLE represents a parameter digit.
+     */
     public enum FragmentType {
         STATIC,
         VARIABLE,

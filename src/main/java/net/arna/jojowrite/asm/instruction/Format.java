@@ -5,16 +5,16 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Wrapper for a Collection that represents individual parts of an instruction, in the order they appear.
+ * Wrapper for a Collection that represents individual {@link Part}s of an Assembly {@link Instruction}, in the order they appear.
  */
 public class Format {
     private DisplacementMutation dispMutation = DisplacementMutation.NONE;
-    private final int variableParts;
+    //private final int variableParts;
     private final Collection<Part> parts;
 
     public Format(Collection<Part> parts) {
         this.parts = parts;
-        variableParts = parts.stream().filter(Part::isVariable).mapToInt(e -> 1).sum();
+        //variableParts = parts.stream().filter(Part::isVariable).mapToInt(e -> 1).sum();
     }
 
     /**
@@ -25,6 +25,11 @@ public class Format {
      */
     public record CompilationContext(Format format, DisplacementMutation displacementMutation, String address) {}
 
+    /**
+     * @param addressStr Address of instruction being checked.
+     * @param instructionStr Instruction being checked.
+     * @return Whether the instructionStr matches this Format.
+     */
     public boolean matches(String addressStr, String instructionStr) {
         CompilationContext ctx = new CompilationContext(this, dispMutation, addressStr);
 
@@ -34,9 +39,14 @@ public class Format {
             if (!matchData.match()) return false;
             instructionStr = matchData.remaining();
         }
-        return true; // Full match
+        return true;
     }
 
+    /**
+     * @param addressStr Address of instruction being compiled.
+     * @param instructionStr Instruction being compiled.
+     * @return Whether the instructionStr matches this Format.
+     */
     public Map<Fragment, Character> mapFragments(String addressStr, String instructionStr) {
         CompilationContext ctx = new CompilationContext(this, dispMutation, addressStr);
         Map<Fragment, Character> out = new HashMap<>();
@@ -47,7 +57,7 @@ public class Format {
             if (!matchData.match()) throw new IllegalStateException("Trying to mapFragments for non-matching instruction!");
             instructionStr = matchData.remaining();
             matchData.fragmentHexDigitMap().ifPresent(out::putAll);
-            if (instructionStr.isEmpty()) return out; // Partial match
+            if (instructionStr.isEmpty()) return out;
         }
         return out;
     }

@@ -7,6 +7,9 @@ import org.fxmisc.richtext.StyleClassedTextField;
 import static net.arna.jojowrite.node.Overwrite.OVERWRITE_TEXT_MAX_WIDTH;
 import static net.arna.jojowrite.node.Overwrite.OVERWRITE_TEXT_MIN_WIDTH;
 
+/**
+ * A StyleClassedTextField that contains Hex bytes.
+ */
 public class OverwriteField extends StyleClassedTextField {
     public OverwriteField(Overwrite overwrite) {
         setOnKeyTyped(

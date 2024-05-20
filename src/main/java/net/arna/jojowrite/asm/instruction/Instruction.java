@@ -4,6 +4,11 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
 
+/**
+ * Data structure that describes an Assembly instruction.
+ * Every instruction is composed of 4 {@link Fragment}s and a {@link Format}.
+ * Compiles into 2 bytes (via {@link Instruction#compileToHexString(Map)}).
+ */
 public final class Instruction {
     private final Collection<Fragment> fragments;
     private final Format format;
@@ -26,9 +31,6 @@ public final class Instruction {
         return fragments.stream().anyMatch(fragment -> fragment.getType() == Fragment.FragmentType.VARIABLE);
     }
 
-    /**
-     * @return Instruction@hash{ format seen in manual -> compiled bytemap }
-     */
     @Override
     public String toString() {
         StringBuilder out = new StringBuilder();
@@ -36,6 +38,9 @@ public final class Instruction {
         return "Instruction@" + Integer.toHexString(hashCode()) + "{ " + format.toString() + " -> " + out + " }";
     }
 
+    /**
+     * @return Instruction@hash{ format seen in manual -> compiled bytemap }
+     */
     public String compileToHexString(Map<Fragment, Character> fragmentData) {
         StringBuilder out = new StringBuilder();
         for (Fragment fragment : fragments) {

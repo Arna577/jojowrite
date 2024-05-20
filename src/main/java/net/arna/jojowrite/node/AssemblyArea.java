@@ -2,7 +2,6 @@ package net.arna.jojowrite.node;
 
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.MenuItem;
-import net.arna.jojowrite.JJWUtils;
 import net.arna.jojowrite.JoJoWriteController;
 import net.arna.jojowrite.asm.Compiler;
 import net.arna.jojowrite.asm.instruction.Instruction;
@@ -10,12 +9,29 @@ import org.fxmisc.richtext.CodeArea;
 import org.fxmisc.richtext.LineNumberFactory;
 
 import java.util.*;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static net.arna.jojowrite.TextStyles.*;
 
+/**
+ * A {@link CodeArea} specialized for x16 RISC Assembly.
+ */
 public class AssemblyArea extends CodeArea {
+    /**
+     * Maps key characters with a style from {@link net.arna.jojowrite.TextStyles}.
+     * Used in {@link AssemblyArea#styleAssemblyParagraph(int, String)}.
+     */
+    private final Map<Character, String> styleMap = new HashMap<>(
+            Map.of(
+                    '(', BASIC_TEXT,
+                    ')', BASIC_TEXT,
+                    ',', BASIC_TEXT,
+                    '@', AT_SYMBOL,
+                    '#', TEMP_OVERWRITE_TEXT
+            )
+    );
+
+    private static final StringBuilder outputBuilder = new StringBuilder();
+
     public AssemblyArea() {
         setTextInsertionStyle(Collections.singleton(PARAMETER_TEXT));
 
@@ -27,6 +43,7 @@ public class AssemblyArea extends CodeArea {
                     JoJoWriteController.getInstance().clearOutput();
                     Compiler.clearErrors();
 
+                    // Autocompletes the next address on the new line, provided the line on which the user pressed enter starts with an address.
                     if (event.getCharacter().equals("\r") || event.getCharacter().equals("\n")) {
                         int paragraphID = getCurrentParagraph();
                         if (--paragraphID >= 0) {
@@ -48,19 +65,15 @@ public class AssemblyArea extends CodeArea {
         );
     }
 
-    private final Map<Character, String> styleMap = Map.of(
-            '(', BASIC_TEXT,
-            ')', BASIC_TEXT,
-            ',', BASIC_TEXT,
-            '@', AT_SYMBOL,
-            '#', TEMP_OVERWRITE_TEXT
-    );
-
-    public void updateVisualsOnly() {
+    /**
+     * Styles paragraphs within the document.
+     * @param forceAll Whether to style the entire document or not.
+     */
+    public void updateVisualsOnly(boolean forceAll) {
         String[] paragraphs = getText().split("\n");
         int startIndex = 0;
-        final int firstVisibleParagraphIndex = firstVisibleParToAllParIndex();
-        final int lastVisibleParagraphIndex = lastVisibleParToAllParIndex();
+        final int firstVisibleParagraphIndex = forceAll ? 0 : firstVisibleParToAllParIndex();
+        final int lastVisibleParagraphIndex = forceAll ? paragraphs.length : lastVisibleParToAllParIndex();
 
         for (int i = 0; i < paragraphs.length; i++) {
             String paragraph = paragraphs[i];
@@ -82,8 +95,13 @@ public class AssemblyArea extends CodeArea {
         }
     }
 
+    @Deprecated
     final List<Long> perfAvg = new ArrayList<>();
-    private static final StringBuilder outputBuilder = new StringBuilder();
+
+    /**
+     * Processes all Assembly instructions and attempts compilation on them.
+     * Styles all visible paragraphs.
+     */
     public void update() {
         long ms = System.currentTimeMillis();
 
@@ -126,27 +144,39 @@ public class AssemblyArea extends CodeArea {
         System.out.println("Finished AssemblyArea#update() at: " + delta + "ms, average: " + perfAvg.stream().mapToLong(i -> i).sum() / perfAvg.size() + ".");
     }
 
+    /**
+     * Styles a paragraph assuming it contains an address pointer and Assembly instruction.
+     * @param startIndex The character index, within the context of {@link AssemblyArea#getText()}
+     */
     private void styleAssemblyParagraph(int startIndex, String paragraph) {
-        if (paragraph.length() < 9) return;
-        setStyleClass(startIndex, startIndex + 8, ADDRESS_TEXT);
-        final String instructionStr = paragraph.substring(9);
+        //long ms = System.currentTimeMillis();
 
+        int paraLength = paragraph.length();
+        if (paraLength < 9) return;
+
+        // Style address pointer
+        setStyleClass(startIndex, startIndex + 8, ADDRESS_TEXT);
+        // Style colon separator
         setStyleClass(startIndex + 8, startIndex + 9, BASIC_TEXT);
 
-        final int keywordEndIndex = instructionStr.indexOf(' ');
+        // Style keyword
+        final int keywordEndIndex = paragraph.indexOf(' ');
         if (keywordEndIndex == -1) {
-            setStyleClass( startIndex + 9, startIndex + paragraph.length(), KEYWORD_TEXT);
+            setStyleClass( startIndex + 9, startIndex + paraLength, KEYWORD_TEXT);
             return;
         } else {
-            setStyleClass( startIndex + 9, startIndex + 9 + keywordEndIndex, KEYWORD_TEXT);
+            setStyleClass( startIndex + 9, startIndex + keywordEndIndex, KEYWORD_TEXT);
         }
 
-        for (int i = keywordEndIndex; i < instructionStr.length(); i++) {
-            String style = styleMap.get(instructionStr.charAt(i));
+        // Style specific characters
+        for (int i = keywordEndIndex; i < paraLength; i++) {
+            String style = styleMap.get(paragraph.charAt(i));
             if (style == null) continue;
-            int charIndex = startIndex + 9 + i;
+            int charIndex = startIndex + i;
             setStyleClass(charIndex, charIndex + 1, style);
         }
+
+        //System.out.println("Completed AssemblyArea#styleAssemblyParagraph() in: " + (System.currentTimeMillis() - ms) + "ms.");
     }
 
     /**
@@ -155,14 +185,15 @@ public class AssemblyArea extends CodeArea {
      * @return Whether the paragraph contains enough data to try to compile.
      */
     private boolean processAssemblyParagraph(int lineIndex, String paragraph) {
-        String[] tokens = paragraph.split(":");
-        final String addressStr = tokens[0]; // 06123456:TEST
+        String[] tokens = paragraph.split(":"); // [06123456:FOO BAR] -> [06123456], [FOO BAR]
+        final String addressStr = tokens[0];
+        if (tokens.length < 2) return false; // Must have address and instruction to begin styling
 
+        // Ensure valid address format
         if (addressStr.length() < 8) {
             Compiler.raiseError("Invalid address length: " + addressStr);
             return false;
         }
-
         try {
             if (Integer.parseUnsignedInt(addressStr, 16) % 2 != 0) {
                 Compiler.raiseError("Unaligned address: " + addressStr);
@@ -173,11 +204,8 @@ public class AssemblyArea extends CodeArea {
             return false;
         }
 
-        if (tokens.length < 2) return false;
-
         final String instructionStr = tokens[1];
         if (instructionStr.isEmpty()) return false;
-
         final List<Instruction> possible = Compiler.getPossibleInstructions(addressStr, instructionStr).toList();
         if (possible.size() == 1) {
             Compiler.clearErrors(lineIndex);

@@ -14,7 +14,7 @@ import java.util.Collection;
 import static net.arna.jojowrite.TextStyles.BASIC_TEXT;
 import static net.arna.jojowrite.TextStyles.TEMP_OVERWRITE_TEXT;
 
-public class ROMTextArea extends StyleClassedTextArea {
+public class ROMArea extends StyleClassedTextArea {
     boolean writingOriginal = false;
     private String originalText = "";
 
@@ -24,7 +24,7 @@ public class ROMTextArea extends StyleClassedTextArea {
     private static final double BYTE_WIDTH = 19.2;
     private final Line[] lines = new Line[NUM_LINES];
 
-    public ROMTextArea() {
+    public ROMArea() {
         super();
 
         setWrapText(true);

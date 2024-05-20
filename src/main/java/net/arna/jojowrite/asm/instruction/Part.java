@@ -8,14 +8,27 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+/**
+ * A segment of an {@link Instruction}s {@link Format}.
+ * Used for pattern-matching against an input String which ultimately decides whether a String is a valid Instruction.
+ */
 public final class Part {
     public enum ArgumentType {
+        /**
+         * Represents a pointer. Length: 4 bytes, Example: 06280000
+         */
         LABEL,
-        // disp
+        /**
+         * Represents an offset. Length: 1-3 bytes, Example: $03FC
+         */
         DISPLACEMENT,
-        // #imm
+        /**
+         * Represents a direct value. Length: 1 byte, Example: #$40
+         */
         IMMEDIATE,
-        // Rn
+        /**
+         * Represents a system register. Length: 1 fragment, Example: R12
+         */
         REGISTER,
     }
 
@@ -67,6 +80,7 @@ public final class Part {
      * @return A new parametric Part.
      */
     public static Part VariablePart(ArgumentType argumentType, List<Fragment> fragments) {
+        // Sanity checks
         String argumentChar = "";
         for (Fragment fragment : fragments) {
             if (fragment.getType() == Fragment.FragmentType.STATIC) {
@@ -87,9 +101,19 @@ public final class Part {
         return new Part(PartType.VARIABLE, null, argumentType, fragments);
     }
 
+    /**
+     * Return type for {@link Part#matches(String, Format.CompilationContext)}.
+     * Holds:
+     * @param match Whether the input strings start matches this Part.
+     * @param remaining The unprocessed remains of the input string.
+     * @param fragmentHexDigitMap A map of which fragments within the greater {@link Instruction} to assign upon compilation.
+     */
     public record MatchData(boolean match, String remaining, Optional<Map<Fragment, Character>> fragmentHexDigitMap) {}
 
-    // Can't parse String by ref
+    /**
+     * The main method which drives compilation.
+     * Receives a string, and determines whether the start of it matches this Part.
+     */
     public MatchData matches(String in, Format.CompilationContext context) {
         if (type == PartType.STATIC) {
             if (in.startsWith(segment)) {
@@ -114,6 +138,7 @@ public final class Part {
                                 return raiseCompilerError(format, "Non-referential branching instruction cannot jump back");
                             } else {
                                 if (pointerAddress % 2 == 0) {
+                                    // Convert absolute address to valid relative offset
                                     int offset = pointerAddress - instructionAddress;
                                     offset /= context.displacementMutation().getModifier();
                                     if (offset > dispMax) {
@@ -142,7 +167,7 @@ public final class Part {
 
                     DisplacementMutation dispMutation = context.displacementMutation();
 
-                    if (dispMutation == DisplacementMutation.NONE) { // Guaranteed 1 byte
+                    if (dispMutation == DisplacementMutation.NONE) { // Guaranteed 1 byte due to instruction length limitations
                         if (in.length() >= fragSize) { // "8F" in $8F
                             for (int i = 0; i < fragSize; i++) {
                                 char digit = in.charAt(i);
@@ -170,14 +195,19 @@ public final class Part {
                             if (dispValue % dispMutation.getModifier() != 0) {
                                 return raiseCompilerError(format, "Invalid displacement, should be a multiple of " + dispMutation.getModifier());
                             }
+
+                            // Account for memory alignment
                             dispValue /= dispMutation.getModifier();
                             if (dispValue > dispMax) {
                                 return raiseCompilerError(format, "Displacement value too large");
                             }
+
+                            // Append leading zeros
                             String displacementValueStr = Integer.toString(dispValue, 16);
-                            if (fragSize > 1) { // Append leading zeros
+                            if (fragSize > 1) {
                                 displacementValueStr = (dispZeroPadding + displacementValueStr).substring(displacementValueStr.length());
                             }
+
                             for (int i = 0; i < fragSize; i++) {
                                 out.put(fragments.get(i), displacementValueStr.charAt(i));
                             }
@@ -221,6 +251,8 @@ public final class Part {
                                         registerNumber += nextCharacter;
                                         cutoff++;
                                     }
+                                } else {
+                                    raiseCompilerError(format, "Expected decimal index after registry specifier");
                                 }
                                 int registerId = Integer.valueOf(registerNumber, 10);
                                 if (registerId > 0x0F) {

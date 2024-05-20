@@ -47,7 +47,7 @@ public class Overwrite extends VBox {
     private Button showInROM;
     private Button delete;
     /**
-     * A HashMap containing indices and byte Strings, used for rendering Overwrites in the {@link ROMTextArea}.
+     * A HashMap containing indices and byte Strings, used for rendering Overwrites in the {@link ROMArea}.
      */
     private final ArrayList<String> byteMap = new ArrayList<>();
 

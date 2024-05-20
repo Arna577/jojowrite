@@ -8,6 +8,9 @@ import java.util.regex.Pattern;
 
 import static net.arna.jojowrite.TextStyles.*;
 
+/**
+ * A StyleClassedTextArea used for .patch files that validates whether the input file paths are valid.
+ */
 public class PatchArea extends StyleClassedTextArea {
     final Pattern SLASH = Pattern.compile("/");
 

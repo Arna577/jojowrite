@@ -10,6 +10,10 @@ import java.io.InputStreamReader;
 import java.util.*;
 import java.util.stream.Stream;
 
+/**
+ * Receives and processes x16 RISC Assembly instructions (usually into machine code).
+ * Also covers error logging via {@link Compiler#openErrorLog(int)} and {@link Compiler#raiseError(String)}.
+ */
 public class Compiler {
     private static final List<Instruction> instructions = new ArrayList<>();
     private static final Map<Integer, ArrayList<String>> errors = new HashMap<>();
@@ -22,6 +26,9 @@ public class Compiler {
         );
     }
 
+    /**
+     * Compiles the specified instruction into a String Hex representation of the compiled machine code.
+     */
     public static String compileToHexString(Instruction instruction, String addressStr, String instructionStr) {
         return instruction.compileToHexString(instruction.getFormat().mapFragments(addressStr, instructionStr));
     }
@@ -46,6 +53,9 @@ public class Compiler {
         errors.put(index, errorLog);
     }
 
+    /**
+     * Appends a new error to the error log.
+     */
     public static void raiseError(String err) {
         if (errorLog == null) return;
         errorLog.add(err);
