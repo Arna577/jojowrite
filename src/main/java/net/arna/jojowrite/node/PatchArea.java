@@ -15,31 +15,33 @@ public class PatchArea extends StyleClassedTextArea {
     final Pattern SLASH = Pattern.compile("/");
 
     public PatchArea() {
-        setOnKeyTyped(event -> {
-            String[] paragraphs = getText().split("\n");
+        setOnKeyTyped(event -> update());
+    }
 
-            int character = 0;
-            for (int i = 0; i < paragraphs.length; i++) {
-                String paragraph = paragraphs[i];
-                int length = paragraph.length();
+    public void update() {
+        String[] paragraphs = getText().split("\n");
 
-                boolean validFile = new File(paragraph).isFile();
+        int character = 0;
+        for (int i = 0; i < paragraphs.length; i++) {
+            String paragraph = paragraphs[i];
+            int length = paragraph.length();
 
-                if (validFile) {
-                    if (i == 0) { // Highlight ROM
-                        setStyleClass(character, character + length, ADDRESS_TEXT);
-                    } else {
-                        setStyleClass(character, character + length,
-                                paragraph.endsWith(JJWUtils.ASSEMBLY_FILE_EXTENSION) || paragraph.endsWith(JJWUtils.OVERWRITE_FILE_EXTENSION) ?
-                                        TEMP_OVERWRITE_TEXT : OVERWRITTEN_TEXT);
-                    }
+            boolean validFile = new File(paragraph).isFile();
+
+            if (validFile) {
+                if (i == 0) { // Highlight ROM
+                    setStyleClass(character, character + length, ADDRESS_TEXT);
                 } else {
-                    setStyleClass(character, character + length, OVERWRITTEN_TEXT);
+                    setStyleClass(character, character + length,
+                            paragraph.endsWith(JJWUtils.ASSEMBLY_FILE_EXTENSION) || paragraph.endsWith(JJWUtils.OVERWRITE_FILE_EXTENSION) ?
+                                    TEMP_OVERWRITE_TEXT : OVERWRITTEN_TEXT);
                 }
-
-                character += length + 1;
+            } else {
+                setStyleClass(character, character + length, OVERWRITTEN_TEXT);
             }
-        });
+
+            character += length + 1;
+        }
     }
 
     @Override

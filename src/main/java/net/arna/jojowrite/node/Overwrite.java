@@ -49,7 +49,8 @@ public class Overwrite extends VBox {
     /**
      * A HashMap containing indices and byte Strings, used for rendering Overwrites in the {@link ROMArea}.
      */
-    private final ArrayList<String> byteMap = new ArrayList<>();
+    private final ArrayList<String> byteStrings = new ArrayList<>();
+    private final ArrayList<Byte> bytes = new ArrayList<>();
 
     public static final double OVERWRITE_TEXT_MIN_WIDTH = 240.0, OVERWRITE_TEXT_MAX_WIDTH = 640.0, OVERWRITE_MIN_HEIGHT = 68.0;
 
@@ -141,15 +142,22 @@ public class Overwrite extends VBox {
         String byteText = getOverwriteText();
         int byteTextLength = byteText.length();
         if (byteTextLength % 2 != 0) throw new IllegalStateException("Overwrite field with uneven character count; " + overwriteField);
-        byteMap.clear();
+        byteStrings.clear();
+        //todo: optimize??
         for (int i = 0; i < byteTextLength; i += 2) {
             // 2 digits represent 1 byte. DisplayROMAt() doubles the address to get the correct placement.
-            byteMap.add(byteText.substring(i, i + 2));
+            char first = byteText.charAt(i);
+            char second = byteText.charAt(i + 1);
+            String byteString = String.valueOf(first) + second;
+            byteStrings.add(byteString);
+            bytes.add(
+                    (byte) ((Character.digit(first, 16) << 4) + Character.digit(second, 16))
+            );
         }
     }
 
-    public ArrayList<String> getByteMap() {
-        return byteMap;
+    public ArrayList<String> getByteStrings() {
+        return byteStrings;
     }
 
     public int getAddress() {

@@ -1,7 +1,9 @@
 package net.arna.jojowrite.node;
 
 import javafx.scene.control.ContextMenu;
+import javafx.scene.control.IndexRange;
 import javafx.scene.control.MenuItem;
+import net.arna.jojowrite.JJWUtils;
 import net.arna.jojowrite.JoJoWriteController;
 import net.arna.jojowrite.asm.Compiler;
 import net.arna.jojowrite.asm.instruction.Instruction;
@@ -16,6 +18,8 @@ import static net.arna.jojowrite.TextStyles.*;
  * A {@link CodeArea} specialized for x16 RISC Assembly.
  */
 public class AssemblyArea extends CodeArea {
+    private String pastText = "";
+
     /**
      * Maps key characters with a style from {@link net.arna.jojowrite.TextStyles}.
      * Used in {@link AssemblyArea#styleAssemblyParagraph(int, String)}.
@@ -61,6 +65,7 @@ public class AssemblyArea extends CodeArea {
                     }
 
                     update();
+                    pastText = getText();
                 }
         );
     }
@@ -112,6 +117,8 @@ public class AssemblyArea extends CodeArea {
         int startIndex = 0;
         final int firstVisibleParagraphIndex = firstVisibleParToAllParIndex();
         final int lastVisibleParagraphIndex = lastVisibleParToAllParIndex();
+        final int firstModifiedCharacter = getSelection().getStart();
+        final int lastModifiedCharacter = getSelection().getEnd();
 
         for (int i = 0; i < paragraphs.length; i++) {
             String paragraph = paragraphs[i];
@@ -121,14 +128,16 @@ public class AssemblyArea extends CodeArea {
                 int paraLength = paragraph.length();
 
                 boolean visible = firstVisibleParagraphIndex <= i && i <= lastVisibleParagraphIndex;
+                // Also catches the next few paragraphs, but that's fine
+                // +/- paraLength serves as a buffer to ensure the paragraph was caught in the range.
+                boolean modified = lastModifiedCharacter >= startIndex - paraLength && firstModifiedCharacter <= startIndex + paraLength;
 
                 if (paragraph.startsWith("//")) { // Comments
-                    if (visible)
-                        setStyleClass(startIndex, startIndex + paraLength, COMMENT_TEXT);
+                    if (visible) setStyleClass(startIndex, startIndex + paraLength, COMMENT_TEXT);
                 } else { // Assembly
                     Compiler.openErrorLog(i);
                     boolean success = processAssemblyParagraph(i, paragraph);
-                    if (visible && success)
+                    if ( (visible || modified) && success )
                         styleAssemblyParagraph(startIndex, paragraph);
                 }
 
@@ -210,6 +219,9 @@ public class AssemblyArea extends CodeArea {
         if (possible.size() == 1) {
             Compiler.clearErrors(lineIndex);
             outputBuilder.append(Compiler.compileToHexString(possible.get(0), addressStr, instructionStr)).append('\n');
+            outputBuilder.append(
+                    JJWUtils.bytesToHex(Compiler.compileToBytes(possible.get(0), addressStr, instructionStr))
+            ).append('\n');
         }
 
         return true;

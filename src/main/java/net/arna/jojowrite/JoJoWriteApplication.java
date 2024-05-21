@@ -1,6 +1,7 @@
 package net.arna.jojowrite;
 
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
 import javafx.scene.text.Font;
@@ -64,6 +65,13 @@ public class JoJoWriteApplication extends Application {
         overwriteFileChooser.getExtensionFilters().add(
                 new FileChooser.ExtensionFilter("JoJoWrite Overwrite Files", '*' + JJWUtils.OVERWRITE_FILE_EXTENSION)
         );
+    }
+
+    @Override
+    public void stop() throws Exception {
+        super.stop();
+        Platform.exit();
+        System.exit(0);
     }
 
     public static File saveFile(FileType type) {

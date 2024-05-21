@@ -33,6 +33,13 @@ public class Compiler {
         return instruction.compileToHexString(instruction.getFormat().mapFragments(addressStr, instructionStr));
     }
 
+    /**
+     * Compiles the specified instruction into a value Hex representation of the compiled machine code.
+     */
+    public static byte[] compileToBytes(Instruction instruction, String addressStr, String instructionStr) {
+        return instruction.compileToBytes(instruction.getFormat().mapFragments(addressStr, instructionStr));
+    }
+
     public static void registerInstruction(Instruction i) throws IllegalStateException {
         if (instructions.contains(i))
             throw new IllegalStateException("Attempted to register the same instruction twice!");

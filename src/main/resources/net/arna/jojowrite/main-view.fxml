@@ -17,10 +17,12 @@
                     <MenuItem text="Select Output" onAction="#selectOutROMFile"/>
                     <MenuItem text="Select" onAction="#selectROMFile"/>
                     <MenuItem text="Open" onAction="#openROMFile"/>
+                    <MenuItem text="Open Selected" onAction="#openSelectedROMFile"/>
                 </Menu>
                 <Menu text="Overwrite">
                     <MenuItem text="New" onAction="#newOverwriteFile"/>
                     <MenuItem text="Open" onAction="#openOverwriteFile"/>
+                    <MenuItem text="Open Selected" onAction="#openSelectedOverwriteFile"/>
                     <MenuItem text="Select" onAction="#selectOverwriteFile"/>
                     <MenuItem text="Save" onAction="#trySaveOverwriteFile"/>
                     <MenuItem text="Save As" onAction="#selectAndSaveOverwriteFile"/>
@@ -28,6 +30,7 @@
                 <Menu text="Assembly">
                     <MenuItem text="New" onAction="#newAssembly"/>
                     <MenuItem text="Open" onAction="#openAssembly"/>
+                    <MenuItem text="Open Selected" onAction="#openSelectedAssembly"/>
                     <MenuItem text="Select" onAction="#selectAssembly"/>
                     <MenuItem text="Save" onAction="#trySaveAssembly"/>
                     <MenuItem text="Save As" onAction="#selectAndSaveAssembly"/>
@@ -35,7 +38,9 @@
                 <Menu text="Patch">
                     <MenuItem text="New" onAction="#newPatch"/>
                     <MenuItem text="Open" onAction="#openPatch"/>
+                    <MenuItem text="Open Selected" onAction="#openSelectedPatch"/>
                     <MenuItem text="Select" onAction="#selectPatch"/>
+                    <MenuItem text="Load Workspace From" onAction="#loadWorkspace"/>
                     <MenuItem text="Save" onAction="#trySavePatch"/>
                     <MenuItem text="Save As" onAction="#selectAndSavePatch"/>
                     <MenuItem text="Apply" onAction="#patchROM"/>

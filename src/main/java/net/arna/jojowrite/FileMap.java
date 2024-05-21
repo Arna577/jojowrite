@@ -16,6 +16,11 @@ public class FileMap extends HashMap<FileType, File> {
     public File put(FileType key, File value) {
         File lastFile = super.put(key, value);
         controller.updateSelectedFileDisplay();
+
+        if (key == FileType.ROM) {
+            controller.updateROMArea(value);
+        }
+
         return lastFile;
     }
 }

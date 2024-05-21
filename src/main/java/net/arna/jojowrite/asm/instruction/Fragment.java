@@ -36,6 +36,10 @@ public class Fragment {
         VARIABLE,
     }
 
+    public Byte getValue() {
+        return value;
+    }
+
     public String asSingleChar() {
         if (type == FragmentType.STATIC)
             return JJWUtils.HEX_DIGITS.substring(value, value + 1);
