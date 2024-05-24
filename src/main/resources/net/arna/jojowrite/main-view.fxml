@@ -81,7 +81,7 @@
             </VirtualizedScrollPane>
 
             <HBox fx:id="romTextBox">
-                <VirtualizedScrollPane fx:id="precisionROMScrollPane" minWidth="308.1" prefWidth="615.9" styleClass="scroll-pane">
+                <VirtualizedScrollPane fx:id="precisionROMScrollPane" minWidth="308.1" prefWidth="615.9" vbarPolicy="NEVER" styleClass="scroll-pane">
                     <content>
                         <ROMArea fx:id="romArea" styleClass="code-area"/>
                     </content>

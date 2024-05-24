@@ -1,9 +1,12 @@
 package net.arna.jojowrite.node;
 
+import javafx.scene.control.TextFormatter;
+import javafx.scene.control.TextInputDialog;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.paint.Paint;
 import javafx.scene.shape.Line;
+import net.arna.jojowrite.DialogHelper;
 import net.arna.jojowrite.JJWUtils;
 import net.arna.jojowrite.JoJoWriteController;
 import org.fxmisc.richtext.StyleClassedTextArea;
@@ -11,8 +14,7 @@ import org.fxmisc.richtext.util.UndoUtils;
 
 import java.util.Collection;
 
-import static net.arna.jojowrite.TextStyles.BASIC_TEXT;
-import static net.arna.jojowrite.TextStyles.TEMP_OVERWRITE_TEXT;
+import static net.arna.jojowrite.TextStyles.*;
 
 public class ROMArea extends StyleClassedTextArea {
     boolean writingOriginal = false;
@@ -57,8 +59,43 @@ public class ROMArea extends StyleClassedTextArea {
                 }
 
                 JoJoWriteController.getInstance().createOverwrite(Integer.toHexString(address + endPos / 2), getText(endPos, initPos), "");
+                setStyleClass(endPos, initPos, OVERWRITTEN_TEXT);
 
                 event.consume();
+            }
+
+            if (event.isControlDown()) {
+                if (event.getCode() == KeyCode.G) {
+                    event.consume();
+
+                    TextInputDialog dialog = DialogHelper.createStyledTextInputDialog();
+                    dialog.setTitle("Reposition");
+                    dialog.setHeaderText("Go to Address: ");
+                    dialog.getDialogPane().getStyleClass().add("help-dialog");
+
+                    dialog.getEditor().setTextFormatter(new TextFormatter<>(JJWUtils.limitLengthOperator(8)));
+                    dialog.getEditor().getStyleClass().add("main");
+
+                    dialog.showAndWait().ifPresent(addressStr -> {
+                        if (addressStr.isEmpty()) return;
+                        JoJoWriteController.getInstance().romScrollBar.setValue(Integer.parseUnsignedInt(addressStr, 16));
+                        selectRange(0, 0);
+                    });
+                }
+                if (event.getCode() == KeyCode.F) {
+                    event.consume();
+
+                    TextInputDialog dialog = DialogHelper.createStyledTextInputDialog();
+                    dialog.setTitle("Find Hex String");
+                    dialog.setHeaderText("Hex value: ");
+                    dialog.getDialogPane().getStyleClass().add("help-dialog");
+                    dialog.getEditor().getStyleClass().add("main");
+
+                    dialog.showAndWait().ifPresent(hexStr -> {
+                        if (hexStr.isEmpty()) return;
+                        JoJoWriteController.getInstance().findAndDisplayInROM(hexStr);
+                    });
+                }
             }
         });
 

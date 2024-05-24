@@ -9,16 +9,18 @@ import javafx.scene.layout.HBox;
 import javafx.stage.StageStyle;
 import net.arna.jojowrite.JJWUtils.FileType;
 import net.arna.jojowrite.asm.Compiler;
+import net.arna.jojowrite.asm.instruction.Instruction;
 import net.arna.jojowrite.node.*;
 import org.fxmisc.flowless.VirtualizedScrollPane;
+import org.fxmisc.richtext.CodeArea;
 import org.fxmisc.richtext.StyleClassedTextArea;
 
 import java.io.*;
-import java.lang.reflect.Field;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.stream.Stream;
 
 import static net.arna.jojowrite.JJWUtils.ASSEMBLY_FILE_EXTENSION;
 import static net.arna.jojowrite.JJWUtils.OVERWRITE_FILE_EXTENSION;
@@ -98,9 +100,17 @@ public class JoJoWriteController implements Initializable {
         );
 
         romScrollBar.valueProperty().addListener(
-                (observable, oldValue, newValue) -> displayROMAt(newValue.intValue())
+                (observable, oldValue, newValue) -> {
+                    long romLength = files.get(FileType.ROM).length();
+                    if (romScrollBar.getMax() != romLength) {
+                        System.out.println("Incorrect romScrollBar maximum detected!");
+                        romScrollBar.setMax(romLength);
+                    }
+                    displayROMAt(newValue.intValue());
+                }
         );
 
+        /*
         try {
             Field privateBar = VirtualizedScrollPane.class.getDeclaredField("vbar");
             privateBar.setAccessible(true);
@@ -109,8 +119,9 @@ public class JoJoWriteController implements Initializable {
         } catch (Exception e) {
             JJWUtils.printException(e, "Reflection failed.");
         }
+         */
 
-        overwriteLoadTimer.scheduleAtFixedRate(new OverwriteLoadTask(), 0, 2);
+        overwriteLoadTimer.scheduleAtFixedRate(new OverwriteLoadTask(), 0, 1);
         overwrites.assignParentPane(overwriteScrollPane);
 
         Compiler.setErrorOutputArea(errorArea);
@@ -126,7 +137,8 @@ public class JoJoWriteController implements Initializable {
             value.forEach(
                     node -> {
                         node.setVisible(keyMatches);
-                        node.setManaged(keyMatches);
+                        if (!(node instanceof CodeArea)) // setManaged(false) prevents updating from off-screen, which is annoying.
+                            node.setManaged(keyMatches);
                     }
             );
         });
@@ -194,7 +206,7 @@ public class JoJoWriteController implements Initializable {
     public void openSelectedFile(FileType type) {
         File file = files.get(type);
         if (file == null) {
-            if ((file = selectFile(type)) == null) {
+            if (selectFile(type) == null) {
                 return;
             }
         }
@@ -309,12 +321,14 @@ public class JoJoWriteController implements Initializable {
         if (patch == null) patch = selectPatch();
         if (patch == null) return;
 
+        RandomAccessFile sourceRomRAF = null;
         File sourceROM = null;
-        Map<File, FileType> toProcess = new HashMap();
+        Map<File, FileType> toProcess = new LinkedHashMap<>(); // The user must be able to select their overwriting order
         try {
             FileReader reader = new FileReader(patch);
             BufferedReader br = new BufferedReader(reader);
             sourceROM = new File(br.readLine());
+            sourceRomRAF = new RandomAccessFile(sourceROM, "r");
             String line;
             while ((line = br.readLine()) != null) {
                 FileType type;
@@ -334,7 +348,7 @@ public class JoJoWriteController implements Initializable {
             JJWUtils.printException(e, "An error occurred while reading patch file.");
         }
 
-        if (sourceROM == null || !sourceROM.exists()) {
+        if (sourceROM == null || sourceRomRAF == null || !sourceROM.exists()) {
             System.out.println("Couldn't locate source ROM for patching.");
             return;
         }
@@ -351,31 +365,97 @@ public class JoJoWriteController implements Initializable {
             System.out.println("Created and accessed new out ROM.");
 
             System.out.println("Copying src ROM -> out ROM...");
-            romRAF.seek(0);
-            byte[] character = new byte[(int) romRAF.length() / 256];
+            sourceRomRAF.seek(0);
+            int chunkSize = (int) sourceRomRAF.length() / 256;
+            assert sourceRomRAF.length() % chunkSize == 0;
+            byte[] data = new byte[chunkSize];
             outRomRAF.seek(0);
-            while ( romRAF.read(character) != -1) outRomRAF.write(character);
+
+            while ( sourceRomRAF.read(data) != -1) {
+                // which address did it read up to, excluding current, unread address
+                //long endAddress = romRAF.getFilePointer() - 1;
+                //long startAddress = endAddress - chunkSize + 1;
+                outRomRAF.write(data);
+            }
             System.out.println("Copy complete.");
         } catch (IOException e) {
             JJWUtils.printException(e, "An error occurred while copying source to destination ROM.");
         }
 
-        System.out.println("SRC: " + sourceROM);
-        toProcess.forEach(
-                (file, type) -> System.out.println(file + "; " + type)
-        );
-        System.out.println("DEST: " + outROM);
+        for (Map.Entry<File, FileType> fileEntry : toProcess.entrySet()) {
+            File toApply = fileEntry.getKey();
+            FileType fileType = fileEntry.getValue();
+
+            switch (fileType) {
+                case ASSEMBLY -> {
+                    try (FileReader reader = new FileReader(toApply)) {
+                        BufferedReader bufferedReader = new BufferedReader(reader);
+                        String line;
+                        while ( (line = bufferedReader.readLine()) != null) {
+                            if (line.isEmpty() || line.startsWith("/")) continue;
+                            String[] addressInstruction = line.split(":"); // Address:Instruction
+
+                            String addressStr = addressInstruction[0];
+                            String instructionStr = addressInstruction[1];
+                            Stream<Instruction> possible = Compiler.getPossibleInstructions(addressStr, instructionStr);
+                            possible.findFirst().ifPresentOrElse(
+                                    instruction -> {
+                                        try {
+                                            outRomRAF.seek(Integer.parseUnsignedInt(addressStr, 16));
+                                            outRomRAF.write(Compiler.compileToBytes(instruction, addressStr, instructionStr));
+                                        } catch (Exception e) {
+                                            JJWUtils.printException(e, "Error applying Assembly machine code to ROM!");
+                                        }
+                                    },
+                                    () -> {
+                                        throw new IllegalStateException("Tried to write unparsable Assembly to ROM!");
+                                    }
+                            );
+                        }
+                    } catch (Exception e) {
+                        JJWUtils.printException(e, "Failed to parse Assembly file during patching!");
+                    }
+                }
+                case OVERWRITE -> {
+                    try (FileReader reader = new FileReader(toApply)) {
+                        BufferedReader bufferedReader = new BufferedReader(reader);
+                        String line;
+                        while ( (line = bufferedReader.readLine()) != null) {
+                            String[] addressOverwriteComment = line.split(";"); // Address;Overwrite;Comment
+                            outRomRAF.seek(Integer.parseUnsignedInt(addressOverwriteComment[0], 16));
+                            byte[] overwriteBytes = JJWUtils.hexStringToBytes(addressOverwriteComment[1]);
+                            outRomRAF.write(overwriteBytes);
+                        }
+                    } catch (Exception e) {
+                        JJWUtils.printException(e, "Failed to parse Overwrite file during patching!");
+                    }
+                }
+                default -> throw new IllegalStateException("Non-Assembly/Overwrite file found in toProcess.entrySet()!");
+            }
+
+            System.out.println("Applied " + toApply);
+        }
+
+        try {
+            if (sourceRomRAF.length() != outRomRAF.length())
+                throw new IllegalStateException("Source and destination ROM lengths do not match!");
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        System.out.println("Patching complete.");
     }
 
     /** ROM **/
     public void openROMFile() {
+        //todo: fix rom file needing to be opened twice to display properly
         selectROMFile();
         setOpenType(files.containsKey(FileType.OVERWRITE) ? FileType.OVERWRITE : FileType.ROM);
+        romScrollBar.setValue(0.0);
+        displayROMAt(0);
     }
 
     public File selectROMFile() {
-        File ROM = selectFile(FileType.ROM);
-        return ROM;
+        return selectFile(FileType.ROM);
     }
 
     /**
@@ -384,11 +464,13 @@ public class JoJoWriteController implements Initializable {
      */
     void updateROMArea(File ROM) {
         if (openType == FileType.OVERWRITE || openType == FileType.ROM) {
-            romScrollBar.setMax(ROM.length());
             try {
                 if (romRAF != null) romRAF.close();
-                romRAF = new RandomAccessFile(ROM, "r");
-                displayROMAt(0);
+                if (ROM != null) {
+                    romRAF = new RandomAccessFile(ROM, "r");
+                    romScrollBar.setMax(ROM.length());
+                    displayROMAt(0);
+                }
             } catch (Exception e) {
                 JJWUtils.printException(e, "An error occurred while opening ROM file.");
             }
@@ -397,6 +479,8 @@ public class JoJoWriteController implements Initializable {
 
     public void openSelectedROMFile() {
         openSelectedFile(FileType.ROM);
+        romScrollBar.setValue(0.0);
+        displayROMAt(0);
     }
 
     public void selectOutROMFile() {
@@ -414,7 +498,7 @@ public class JoJoWriteController implements Initializable {
         @Override
         public void run() {
             Platform.runLater(() -> {
-                String raw = overwriteStringPairs.poll();
+                String raw = overwriteLoadQueue.poll();
                 if (raw == null) return;
                 Overwrite.fromString(raw).assignOverwriteBox(overwrites, false);
                 overwrites.layout();
@@ -423,7 +507,7 @@ public class JoJoWriteController implements Initializable {
         }
     }
 
-    public static final Queue<String> overwriteStringPairs = new LinkedList<>();
+    public static final Queue<String> overwriteLoadQueue = new LinkedList<>();
     public void openOverwriteFile() {
         if (selectOverwriteFile() == null) return;
         loadOverwriteFile();
@@ -435,9 +519,10 @@ public class JoJoWriteController implements Initializable {
 
         try (FileReader fileReader = new FileReader(files.get(FileType.OVERWRITE))) {
             BufferedReader bufferedReader = new BufferedReader(fileReader);
+            overwriteLoadQueue.clear();
             String line;
             while ((line = bufferedReader.readLine()) != null)
-                overwriteStringPairs.add(line);
+                overwriteLoadQueue.add(line);
             bufferedReader.close();
         } catch (Exception e) {
             JJWUtils.printException(e, "An error occurred while opening overwrite file.");
@@ -539,9 +624,8 @@ public class JoJoWriteController implements Initializable {
         overwriteScrollPane.setVvalue(0.0);
         Overwrite overwrite = new Overwrite(overwrites);
         overwrite.bufferText(addressText, overwriteText, commentText);
-        overwrites.updateVisibility();
-        refreshOverwrites();
         overwrite.focus();
+        overwrites.updateVisibility();
     }
 
     public void showOverwritesAsLUA() {
@@ -611,6 +695,12 @@ public class JoJoWriteController implements Initializable {
         displayROMOverwrites();
     }
 
+    public void findAndDisplayInROM(String hexStr) {
+        byte[] bytes = JJWUtils.hexStringToBytes(hexStr);
+        int foundPosition = 0; //todo: find bytes via rom raf
+        romScrollBar.setValue(foundPosition);
+    }
+
     /**
      * Displays all Overwrites that reside within the currently rendered {@link JoJoWriteController#romArea} as text styled with {@link TextStyles#OVERWRITTEN_TEXT}.
      */
@@ -638,7 +728,7 @@ public class JoJoWriteController implements Initializable {
     }
 
     public void showOverwriteHelp() {
-        var dialog = createStyledAlert(Alert.AlertType.INFORMATION);
+        Alert dialog = DialogHelper.createStyledAlert(Alert.AlertType.INFORMATION);
         dialog.setTitle("Overwrite Info");
         dialog.setHeaderText(
                 """
@@ -663,14 +753,24 @@ public class JoJoWriteController implements Initializable {
     }
 
     public void showHotkeyHelp() {
-
+        var dialog = DialogHelper.createStyledAlert(Alert.AlertType.INFORMATION);
+        dialog.setTitle("Hotkey Info");
+        dialog.setHeaderText(
+                """
+                        ROM:
+                            ●   Ctrl + G - go to address
+                            ●   Ctrl + F - find hex string
+                        Overwrites:
+                            ●   Ctrl + F - find Overwrite by address
+                            
+                            """
+        );
+        dialog.initStyle(StageStyle.UNDECORATED);
+        dialog.getDialogPane().getStyleClass().add("help-dialog");
+        dialog.showAndWait();
     }
 
-    private Alert createStyledAlert(Alert.AlertType type) {
-        Alert alert = new Alert(type);
-        alert.getDialogPane().getStylesheets().add(JoJoWriteApplication.DIALOG_STYLESHEET);
-        return alert;
-    }
+
 
     public void clearOutput() {
         output.clear();

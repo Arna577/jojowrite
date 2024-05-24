@@ -15,7 +15,7 @@ public class FileMap extends HashMap<FileType, File> {
     @Override
     public File put(FileType key, File value) {
         File lastFile = super.put(key, value);
-        controller.updateSelectedFileDisplay();
+        controller.updateSelectedFileDisplay(); //todo: scrolling label (like lord terry a davis did it)
 
         if (key == FileType.ROM) {
             controller.updateROMArea(value);

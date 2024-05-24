@@ -65,4 +65,14 @@ public interface JJWUtils {
         System.out.println(msg);
         e.printStackTrace();
     }
+
+    static byte[] hexStringToBytes(String in) {
+        int byteCount = in.length() / 2;
+        byte[] out = new byte[byteCount];
+        for (int i = 0; i < byteCount; i++)
+            out[i] = (byte) (
+                    (Character.digit(in.charAt(i * 2), 16) << 4) + Character.digit(in.charAt(i * 2 + 1), 16)
+            );
+        return out;
+    }
 }

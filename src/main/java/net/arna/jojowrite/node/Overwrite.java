@@ -22,12 +22,15 @@ import java.util.ArrayList;
 
 /*
  * todo: Overwrite > From ROM Differences
- *  hotkeys (Ctrl+G > GOTO | Ctrl+F > FIND)
+ *  more hotkeys (?)
  *  selecting amount of ROM to put into page
  *  help menus
  *  ROMTextArea width snapping
- *  patching
+ *  integration with xcopy
+ *  romsplitting?
  *  select overwrite from ROM red text
+ *  Assembly: show as LUA, show as Overwrite
+ *  Add a LOGGER
  */
 public class Overwrite extends VBox {
     /**
@@ -44,13 +47,11 @@ public class Overwrite extends VBox {
      * May contain most characters, used by the user to annotate what this {@link Overwrite} does.
      */
     private TextField commentField;
-    private Button showInROM;
-    private Button delete;
     /**
      * A HashMap containing indices and byte Strings, used for rendering Overwrites in the {@link ROMArea}.
      */
     private final ArrayList<String> byteStrings = new ArrayList<>();
-    private final ArrayList<Byte> bytes = new ArrayList<>();
+    //private final ArrayList<Byte> bytes = new ArrayList<>();
 
     public static final double OVERWRITE_TEXT_MIN_WIDTH = 240.0, OVERWRITE_TEXT_MAX_WIDTH = 640.0, OVERWRITE_MIN_HEIGHT = 68.0;
 
@@ -111,14 +112,14 @@ public class Overwrite extends VBox {
         overwriteField.setMinWidth(OVERWRITE_TEXT_MIN_WIDTH);
         overwriteField.setMaxWidth(OVERWRITE_TEXT_MAX_WIDTH);
 
-        showInROM = new Button("Show in ROM");
+        Button showInROM = new Button("Show in ROM");
         //showInROM.setMinWidth(130.0);
         showInROM.setOnAction(event -> JoJoWriteController.getInstance().showInROM(getAddress(), overwriteField.getLength()));
 
-        delete = new Button("Delete");
+        Button delete = new Button("Delete");
         delete.getStyleClass().add("delete-button");
         delete.setOnAction(event -> {
-            overwrites.remove(this);
+            overwrites.removeAndUpdate(this);
             JoJoWriteController.getInstance().refreshOverwrites();
         });
         //delete.setMinWidth(85.0);
@@ -150,9 +151,7 @@ public class Overwrite extends VBox {
             char second = byteText.charAt(i + 1);
             String byteString = String.valueOf(first) + second;
             byteStrings.add(byteString);
-            bytes.add(
-                    (byte) ((Character.digit(first, 16) << 4) + Character.digit(second, 16))
-            );
+            //bytes.add( (byte) ((Character.digit(first, 16) << 4) + Character.digit(second, 16)) );
         }
     }
 
@@ -230,6 +229,7 @@ public class Overwrite extends VBox {
      * Requests focus to this Overwrites {@link Overwrite#overwriteField} and places the caret at the end.
      */
     public void focus() {
+        if (!loaded) load();
         overwriteField.requestFocus();
         overwriteField.displaceCaret(overwriteField.getLength());
     }

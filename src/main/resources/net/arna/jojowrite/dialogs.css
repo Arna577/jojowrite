@@ -47,6 +47,12 @@
     -fx-text-fill: -jjw-text-color;
 }
 
+.main {
+    -fx-background-color: -jjw-background-color;
+    -fx-font-family: "Courier Prime";
+    -fx-font-size: 16;
+}
+
 .button:hover {
     -fx-background-radius: 3 3 3 3;
     -fx-background-color: -jjw-highlight-color;

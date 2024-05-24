@@ -2,9 +2,17 @@ package net.arna.jojowrite.node;
 
 import javafx.geometry.Bounds;
 import javafx.scene.Node;
+import javafx.scene.control.DialogPane;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.TextFormatter;
+import javafx.scene.control.TextInputDialog;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.VBox;
+import net.arna.jojowrite.DialogHelper;
+import net.arna.jojowrite.JJWUtils;
 
+//todo: figure out if i can migrate type of getChildren() from ObservableList<Node> to ObservableList<Overwrite>
 public class OverwriteBox extends VBox {
     private ScrollPane parentPane;
 
@@ -17,6 +25,42 @@ public class OverwriteBox extends VBox {
         this.parentPane = pane;
         parentPane.heightProperty().addListener(observable -> updateVisibility());
         parentPane.vvalueProperty().addListener(observable -> updateVisibility());
+
+        // Ctrl + F to find an Overwrite
+        addEventFilter(KeyEvent.KEY_PRESSED, event -> {
+            if (event.isControlDown() && event.getCode() == KeyCode.F) {
+                event.consume();
+
+                TextInputDialog dialog = DialogHelper.createStyledTextInputDialog();
+                DialogPane dialogPane = dialog.getDialogPane();
+                dialog.setTitle("Find Overwrite");
+                dialog.setHeaderText("Overwrite Address: ");
+                //todo: dialog.setContentText("If no full match was found, you will be taken to the first closest match."); // Via a sliding bit shift equality check
+                dialogPane.getStyleClass().add("help-dialog");
+
+                dialog.getEditor().setTextFormatter(new TextFormatter<>(JJWUtils.limitLengthOperator(8)));
+                dialog.getEditor().getStyleClass().add("main");
+
+                dialog.showAndWait().ifPresent(addressStr -> {
+                    if (addressStr.isEmpty()) return;
+                    int findAddress = Integer.parseUnsignedInt(addressStr, 16);
+                    for (Node node : getChildren()) {
+                        if (node instanceof Overwrite overwrite) {
+                            if (overwrite.getAddress() == findAddress) {
+                                // obj.getLayoutY() / parent.getHeight() is proportionally skewed relative to the size of the dataset
+                                // this multiplier compensates for that, which gives the object the vertical space to display fully.
+                                double relativeSizeMultiplier = 1.0 + overwrite.getHeight() / getHeight();
+                                parentPane.setVvalue(relativeSizeMultiplier * overwrite.getLayoutY() / getHeight());
+                                overwrite.focus();
+                                break;
+                            }
+                        } else {
+                            throw new IllegalStateException("OverwriteBox contains non-Overwrite children!");
+                        }
+                    }
+                });
+            }
+        });
     }
 
     /**
@@ -47,6 +91,11 @@ public class OverwriteBox extends VBox {
 
     public void remove(Overwrite overwrite) {
         getChildren().remove(overwrite);
+    }
+
+    public void removeAndUpdate(Overwrite overwrite) {
+        remove(overwrite);
+        updateVisibility();
     }
 
     /**
