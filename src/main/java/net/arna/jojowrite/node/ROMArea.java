@@ -2,6 +2,7 @@ package net.arna.jojowrite.node;
 
 import javafx.scene.control.TextFormatter;
 import javafx.scene.control.TextInputDialog;
+import javafx.scene.effect.BlendMode;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.paint.Paint;
@@ -20,20 +21,25 @@ public class ROMArea extends StyleClassedTextArea {
     boolean writingOriginal = false;
     private String originalText = "";
 
-    private int address = 0x00000000;
+    private long address = 0x00000000;
 
     private static final int NUM_LINES = 33;
     private static final double BYTE_WIDTH = 19.2;
     private final Line[] lines = new Line[NUM_LINES];
 
+    private final TextInputDialog findDialog = DialogHelper.createStyledTextInputDialog();
+    private final TextInputDialog goToDialog = DialogHelper.createStyledTextInputDialog();
+
     public ROMArea() {
         super();
 
-        setWrapText(true);
+        initDialogs();
 
+        // Input handlers
         addEventFilter(KeyEvent.KEY_PRESSED, event -> {
-            if (event.getCode() == KeyCode.ENTER) {
-                if (JoJoWriteController.getInstance().openType != JJWUtils.FileType.OVERWRITE) return;
+            KeyCode keyCode = event.getCode();
+            if (keyCode == KeyCode.ENTER) {
+                if (JoJoWriteController.getInstance().getOpenType() != JJWUtils.FileType.OVERWRITE) return;
 
                 int initPos = getCaretPosition();
                 int endPos = initPos;
@@ -42,56 +48,39 @@ public class ROMArea extends StyleClassedTextArea {
                     while (true) {
                         Collection<String> styleClass = getStyleAtPosition(endPos);
                         // Style as a selector is not an amazing idea, but I'll see if it causes problems down the line :)
-                        if (!styleClass.contains(TEMP_OVERWRITE_TEXT))
-                            break;
-                        endPos--;
-                        if (endPos <= 0)
-                            break;
+                        if (!styleClass.contains(TEMP_OVERWRITE_TEXT)) break;
+                        if (--endPos <= 0) break;
                     }
 
-                    if (initPos % 2 == 1)
-                        initPos++;
-                    if (endPos % 2 == 1)
-                        endPos--;
+                    // Ensures that the init and end positions are byte-aligned
+                    if (initPos % 2 == 1) initPos++;
+                    if (endPos % 2 == 1) endPos--;
                 } else {
                     endPos = getSelection().getStart();
                     initPos = getSelection().getEnd();
                 }
 
-                JoJoWriteController.getInstance().createOverwrite(Integer.toHexString(address + endPos / 2), getText(endPos, initPos), "");
+                JoJoWriteController.getInstance().createOverwrite(Long.toHexString(address + endPos / 2), getText(endPos, initPos), "");
                 setStyleClass(endPos, initPos, OVERWRITTEN_TEXT);
 
                 event.consume();
             }
 
             if (event.isControlDown()) {
-                if (event.getCode() == KeyCode.G) {
+                if (keyCode == KeyCode.G) { // Ctrl + G - Go to Address
                     event.consume();
-
-                    TextInputDialog dialog = DialogHelper.createStyledTextInputDialog();
-                    dialog.setTitle("Reposition");
-                    dialog.setHeaderText("Go to Address: ");
-                    dialog.getDialogPane().getStyleClass().add("help-dialog");
-
-                    dialog.getEditor().setTextFormatter(new TextFormatter<>(JJWUtils.limitLengthOperator(8)));
-                    dialog.getEditor().getStyleClass().add("main");
-
-                    dialog.showAndWait().ifPresent(addressStr -> {
+                    goToDialog.showAndWait().ifPresent(addressStr -> {
                         if (addressStr.isEmpty()) return;
-                        JoJoWriteController.getInstance().romScrollBar.setValue(Integer.parseUnsignedInt(addressStr, 16));
-                        selectRange(0, 0);
+                        try {
+                            int address = Integer.parseUnsignedInt(addressStr, 16);
+                            JoJoWriteController.getInstance().romScrollBar.setValue(address);
+                            selectRange(0, 0);
+                        } catch (Exception ignored) {}
                     });
                 }
-                if (event.getCode() == KeyCode.F) {
+                if (keyCode == KeyCode.F) { // Ctrl + F - Find Hex string
                     event.consume();
-
-                    TextInputDialog dialog = DialogHelper.createStyledTextInputDialog();
-                    dialog.setTitle("Find Hex String");
-                    dialog.setHeaderText("Hex value: ");
-                    dialog.getDialogPane().getStyleClass().add("help-dialog");
-                    dialog.getEditor().getStyleClass().add("main");
-
-                    dialog.showAndWait().ifPresent(hexStr -> {
+                    findDialog.showAndWait().ifPresent(hexStr -> {
                         if (hexStr.isEmpty()) return;
                         JoJoWriteController.getInstance().findAndDisplayInROM(hexStr);
                     });
@@ -106,6 +95,7 @@ public class ROMArea extends StyleClassedTextArea {
             Line line = new Line(x, 0, x, 0);
             lines[i] = line;
             line.setStroke(Paint.valueOf("#455A64"));
+            line.setBlendMode(BlendMode.ADD);
             getChildren().add(line);
         }
 
@@ -120,9 +110,19 @@ public class ROMArea extends StyleClassedTextArea {
         });
     }
 
-    @Override
-    protected void setWidth(double value) {
-        super.setWidth(value);
+    private void initDialogs() {
+        // Styling for Find Hex String Dialog
+        findDialog.setTitle("Find Hex String");
+        findDialog.setHeaderText("Hex value: ");
+        findDialog.getDialogPane().getStyleClass().add("help-dialog");
+        findDialog.getEditor().getStyleClass().add("main");
+
+        // Styling for Go To Dialog
+        goToDialog.setTitle("Reposition");
+        goToDialog.setHeaderText("Go to Address: ");
+        goToDialog.getDialogPane().getStyleClass().add("help-dialog");
+        goToDialog.getEditor().setTextFormatter(new TextFormatter<>(JJWUtils.limitLengthOperator(8)));
+        goToDialog.getEditor().getStyleClass().add("main");
     }
 
     private boolean validateText(String text) {
@@ -185,11 +185,11 @@ public class ROMArea extends StyleClassedTextArea {
         }
     }
 
-    public int getAddress() {
+    public long getAddress() {
         return address;
     }
 
-    public void setAddress(int address) {
+    public void setAddress(long address) {
         this.address = address;
     }
 }

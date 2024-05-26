@@ -10,6 +10,7 @@ import javafx.stage.StageStyle;
 import net.arna.jojowrite.JJWUtils.FileType;
 import net.arna.jojowrite.asm.Compiler;
 import net.arna.jojowrite.asm.instruction.Instruction;
+import net.arna.jojowrite.manager.ScrollingLabelManager;
 import net.arna.jojowrite.node.*;
 import org.fxmisc.flowless.VirtualizedScrollPane;
 import org.fxmisc.richtext.CodeArea;
@@ -34,7 +35,7 @@ public class JoJoWriteController implements Initializable {
     private File outROM;
     public final FileMap files = new FileMap(this);
 
-    public FileType openType = null;
+    private FileType openType = null;
 
     @FXML
     public Label selectedFileDisplay;
@@ -121,10 +122,14 @@ public class JoJoWriteController implements Initializable {
         }
          */
 
+        // Loads overwrites any time the overwriteLoadQueue isn't empty
         overwriteLoadTimer.scheduleAtFixedRate(new OverwriteLoadTask(), 0, 1);
+        // Gives overwrites a reference to its parent.
         overwrites.assignParentPane(overwriteScrollPane);
 
         Compiler.setErrorOutputArea(errorArea);
+
+        ScrollingLabelManager.getInstance().addLabel(selectedFileDisplay);
 
         setOpenType(FileType.ROM);
     }
@@ -137,8 +142,9 @@ public class JoJoWriteController implements Initializable {
             value.forEach(
                     node -> {
                         node.setVisible(keyMatches);
-                        if (!(node instanceof CodeArea)) // setManaged(false) prevents updating from off-screen, which is annoying.
+                        if (!(node instanceof CodeArea)) { // setManaged(false) prevents updating from off-screen, which is annoying.
                             node.setManaged(keyMatches);
+                        }
                     }
             );
         });
@@ -447,7 +453,6 @@ public class JoJoWriteController implements Initializable {
 
     /** ROM **/
     public void openROMFile() {
-        //todo: fix rom file needing to be opened twice to display properly
         selectROMFile();
         setOpenType(files.containsKey(FileType.OVERWRITE) ? FileType.OVERWRITE : FileType.ROM);
         romScrollBar.setValue(0.0);
@@ -566,9 +571,10 @@ public class JoJoWriteController implements Initializable {
 
         try
         {
-            FileReader reader = new FileReader( files.get(FileType.ASSEMBLY) );
+            File asmFile = files.get(FileType.ASSEMBLY);
+            FileReader reader = new FileReader(asmFile);
             BufferedReader br = new BufferedReader(reader);
-            StringBuilder content = new StringBuilder();
+            StringBuilder content = new StringBuilder((int) asmFile.length());
             int c;
             while ((c = br.read()) != -1) content.append((char)c);
             assemblyArea.appendText(content.toString());
@@ -624,8 +630,8 @@ public class JoJoWriteController implements Initializable {
         overwriteScrollPane.setVvalue(0.0);
         Overwrite overwrite = new Overwrite(overwrites);
         overwrite.bufferText(addressText, overwriteText, commentText);
-        overwrite.focus();
         overwrites.updateVisibility();
+        overwrite.focus();
     }
 
     public void showOverwritesAsLUA() {
@@ -646,8 +652,8 @@ public class JoJoWriteController implements Initializable {
 
     // ADDRESS INCREMENTS PER BYTE (OR TWO HEX DIGITS)
     private static final int MAX_ROM_DISPLAY_LENGTH = 1024; //4096
-    // Self-explanatory.
-    private void displayROMAt(int address) {
+    // Self-explanatory name. If you wish to show something in the ROM, use showInROM.
+    private void displayROMAt(long address) {
         if (romRAF == null) {
             File ROM = files.get(FileType.ROM);
             if (ROM == null) return;
@@ -697,15 +703,27 @@ public class JoJoWriteController implements Initializable {
 
     public void findAndDisplayInROM(String hexStr) {
         byte[] bytes = JJWUtils.hexStringToBytes(hexStr);
-        int foundPosition = 0; //todo: find bytes via rom raf
-        romScrollBar.setValue(foundPosition);
+        int hexStrLength = bytes.length;
+        byte[] readBytes = new byte[hexStrLength];
+        try {
+            //todo: optimize
+            romRAF.seek(0);
+            while (romRAF.read(readBytes) != -1) {
+                if (Arrays.equals(readBytes, bytes)) {
+                    showInROM((int) romRAF.getFilePointer() - hexStrLength, hexStrLength);
+                    break;
+                }
+            }
+        } catch (Exception e) {
+            JJWUtils.printException(e, "Failed to find and display " + hexStr + " in ROM!");
+        }
     }
 
     /**
      * Displays all Overwrites that reside within the currently rendered {@link JoJoWriteController#romArea} as text styled with {@link TextStyles#OVERWRITTEN_TEXT}.
      */
     private void displayROMOverwrites() {
-        int address = romArea.getAddress();
+        long address = romArea.getAddress();
 
         for (Node node : overwrites.getChildren()) {
             if (node instanceof Overwrite overwrite) {
@@ -713,7 +731,8 @@ public class JoJoWriteController implements Initializable {
                 int overwriteAddress = overwrite.getAddress();
                 for (int i = 0; i < byteMap.size(); i++) {
                     // Bytes
-                    int byteTextAddress = overwriteAddress - address + i; // Relativize
+                    // If we ever wish to support larger file sizes, all that is required is that overwrite addresses are also longs, then we downcast the subtraction.
+                    int byteTextAddress = overwriteAddress - (int)address + i; // Relativize
                     if (byteTextAddress < 0) continue;
                     if (byteTextAddress >= romArea.getLength() / 2) continue;
 
@@ -770,7 +789,9 @@ public class JoJoWriteController implements Initializable {
         dialog.showAndWait();
     }
 
-
+    public FileType getOpenType() {
+        return getOpenType();
+    }
 
     public void clearOutput() {
         output.clear();

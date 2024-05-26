@@ -31,6 +31,7 @@ import java.util.ArrayList;
  *  select overwrite from ROM red text
  *  Assembly: show as LUA, show as Overwrite
  *  Add a LOGGER
+ *  fix overwrites not displaying on start page of ROM
  */
 public class Overwrite extends VBox {
     /**
@@ -218,6 +219,7 @@ public class Overwrite extends VBox {
             if (content.length > 2) {
                 overwrite.bufferCommentText = content[2];
             }
+            overwrite.separateBytes();
         } else {
             throw new IllegalArgumentException("Invalid string for generating Overwrite; " + raw);
         }

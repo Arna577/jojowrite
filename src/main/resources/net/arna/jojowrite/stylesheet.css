@@ -115,7 +115,7 @@
 }
 
 .caret {
-    -fx-stroke: -jjw-text-color;
+    -fx-stroke: -jjw-highlight-text-color;
 }
 
 /* Patch Area */
@@ -131,10 +131,6 @@
 .patch-area .text {
     -fx-font-family: "Courier Prime";
     -fx-font-size: 18;
-}
-
-.caret {
-    -fx-stroke: -jjw-text-color;
 }
 
 /* Error Area */

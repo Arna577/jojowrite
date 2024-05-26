@@ -1,14 +1,18 @@
 package net.arna.jojowrite.node;
 
 import javafx.scene.control.ContextMenu;
-import javafx.scene.control.IndexRange;
 import javafx.scene.control.MenuItem;
-import net.arna.jojowrite.JJWUtils;
+import javafx.scene.control.TextInputDialog;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
+import net.arna.jojowrite.DialogHelper;
 import net.arna.jojowrite.JoJoWriteController;
 import net.arna.jojowrite.asm.Compiler;
 import net.arna.jojowrite.asm.instruction.Instruction;
 import org.fxmisc.richtext.CodeArea;
 import org.fxmisc.richtext.LineNumberFactory;
+import org.fxmisc.richtext.model.StyleSpan;
+import org.fxmisc.richtext.model.StyleSpans;
 
 import java.util.*;
 
@@ -18,8 +22,6 @@ import static net.arna.jojowrite.TextStyles.*;
  * A {@link CodeArea} specialized for x16 RISC Assembly.
  */
 public class AssemblyArea extends CodeArea {
-    private String pastText = "";
-
     /**
      * Maps key characters with a style from {@link net.arna.jojowrite.TextStyles}.
      * Used in {@link AssemblyArea#styleAssemblyParagraph(int, String)}.
@@ -36,11 +38,45 @@ public class AssemblyArea extends CodeArea {
 
     private static final StringBuilder outputBuilder = new StringBuilder();
 
+    private final TextInputDialog findDialog = DialogHelper.createStyledTextInputDialog();
+    private final TextInputDialog goToDialog = DialogHelper.createStyledTextInputDialog();
+
+    public static final String commentPrefix = "//";
+
     public AssemblyArea() {
         setTextInsertionStyle(Collections.singleton(PARAMETER_TEXT));
 
         setParagraphGraphicFactory(LineNumberFactory.get(this));
+
         setContextMenu(new DefaultContextMenu());
+
+        initDialogs();
+
+        addEventFilter(KeyEvent.KEY_PRESSED, event -> {
+            if (event.isControlDown()) {
+                if (event.getCode() == KeyCode.G) { // Ctrl + G - Go to Line
+                    event.consume();
+                    goToDialog.showAndWait().ifPresent(lineNum -> {
+                        if (lineNum.isEmpty()) return;
+                        try {
+                            int paragraph = Integer.parseUnsignedInt(lineNum, 10) - 1; // Not zero-indexed
+                            if (paragraph > getText().split("\n").length) return;
+                            selectRange(paragraph, 0, paragraph, 0);
+                        } catch (Exception ignored) {}
+                    });
+                }
+                //todo: actually good find menu (find all occurrences then let user go through them)
+                if (event.getCode() == KeyCode.F) { // Ctrl + F - Find Text
+                    event.consume();
+                    findDialog.showAndWait().ifPresent(text -> {
+                        if (text.isEmpty()) return;
+                        int index = getText().indexOf(text);
+                        if (index == -1) return;
+                        selectRange(index, index + text.length());
+                    });
+                }
+            }
+        });
 
         setOnKeyTyped(
                 event -> {
@@ -65,9 +101,22 @@ public class AssemblyArea extends CodeArea {
                     }
 
                     update();
-                    pastText = getText();
                 }
         );
+    }
+
+    private void initDialogs() {
+        // Styling for Find Hex String Dialog
+        findDialog.setTitle("Find");
+        findDialog.setHeaderText("Find: ");
+        findDialog.getDialogPane().getStyleClass().add("help-dialog");
+        findDialog.getEditor().getStyleClass().add("main");
+
+        // Styling for Go To Dialog
+        goToDialog.setTitle("Go To");
+        goToDialog.setHeaderText("Line: ");
+        goToDialog.getDialogPane().getStyleClass().add("help-dialog");
+        goToDialog.getEditor().getStyleClass().add("main");
     }
 
     /**
@@ -75,6 +124,8 @@ public class AssemblyArea extends CodeArea {
      * @param forceAll Whether to style the entire document or not.
      */
     public void updateVisualsOnly(boolean forceAll) {
+        long ms = System.currentTimeMillis();
+
         String[] paragraphs = getText().split("\n");
         int startIndex = 0;
         final int firstVisibleParagraphIndex = forceAll ? 0 : firstVisibleParToAllParIndex();
@@ -88,16 +139,18 @@ public class AssemblyArea extends CodeArea {
                 int paraLength = paragraph.length();
 
                 if (firstVisibleParagraphIndex <= i && i <= lastVisibleParagraphIndex) { // Visible
-                    if (paragraph.startsWith("//")) { // Comments
+                    if (paragraph.startsWith(commentPrefix)) { // Comments
                         setStyleClass(startIndex, startIndex + paraLength, COMMENT_TEXT);
                     } else { // Assembly
-                        styleAssemblyParagraph(startIndex, paragraph);
+                        styleAssemblyParagraph(startIndex, i, paragraph);
                     }
                 }
 
                 startIndex += paraLength + 1; // Account for omitted \n
             }
         }
+
+        System.out.println("Finished AssemblyArea#updateVisualsOnly() in: " + (System.currentTimeMillis() - ms) + "ms.");
     }
 
     @Deprecated
@@ -132,13 +185,13 @@ public class AssemblyArea extends CodeArea {
                 // +/- paraLength serves as a buffer to ensure the paragraph was caught in the range.
                 boolean modified = lastModifiedCharacter >= startIndex - paraLength && firstModifiedCharacter <= startIndex + paraLength;
 
-                if (paragraph.startsWith("//")) { // Comments
+                if (paragraph.startsWith(commentPrefix)) { // Comments
                     if (visible) setStyleClass(startIndex, startIndex + paraLength, COMMENT_TEXT);
                 } else { // Assembly
                     Compiler.openErrorLog(i);
                     boolean success = processAssemblyParagraph(i, paragraph);
                     if ( (visible || modified) && success )
-                        styleAssemblyParagraph(startIndex, paragraph);
+                        styleAssemblyParagraph(startIndex, i, paragraph);
                 }
 
                 startIndex += paraLength + 1; // Account for omitted \n
@@ -150,23 +203,22 @@ public class AssemblyArea extends CodeArea {
 
         long delta = (System.currentTimeMillis() - ms);
         perfAvg.add(delta);
-        System.out.println("Finished AssemblyArea#update() at: " + delta + "ms, average: " + perfAvg.stream().mapToLong(i -> i).sum() / perfAvg.size() + ".");
+        System.out.println("Finished AssemblyArea#update() in: " + delta + "ms, average: " + perfAvg.stream().mapToLong(i -> i).sum() / perfAvg.size() + ".");
     }
 
+    private static final StyleSpans<? extends Collection<String>> addressPrefixStyle =
+            StyleSpans.singleton(Collections.singleton(ADDRESS_TEXT), 8).append(
+                    new StyleSpan<>(Collections.singleton(BASIC_TEXT), 1));
     /**
      * Styles a paragraph assuming it contains an address pointer and Assembly instruction.
      * @param startIndex The character index, within the context of {@link AssemblyArea#getText()}
      */
-    private void styleAssemblyParagraph(int startIndex, String paragraph) {
+    private void styleAssemblyParagraph(int startIndex, int paraIndex, String paragraph) {
         //long ms = System.currentTimeMillis();
-
         int paraLength = paragraph.length();
         if (paraLength < 9) return;
 
-        // Style address pointer
-        setStyleClass(startIndex, startIndex + 8, ADDRESS_TEXT);
-        // Style colon separator
-        setStyleClass(startIndex + 8, startIndex + 9, BASIC_TEXT);
+        setStyleSpans(paraIndex, 0, addressPrefixStyle);
 
         // Style keyword
         final int keywordEndIndex = paragraph.indexOf(' ');
@@ -219,9 +271,11 @@ public class AssemblyArea extends CodeArea {
         if (possible.size() == 1) {
             Compiler.clearErrors(lineIndex);
             outputBuilder.append(Compiler.compileToHexString(possible.get(0), addressStr, instructionStr)).append('\n');
-            outputBuilder.append(
+            /*
+            outputBuilder.append( // Testing whether bytecode matches direct hex string compilation
                     JJWUtils.bytesToHex(Compiler.compileToBytes(possible.get(0), addressStr, instructionStr))
             ).append('\n');
+             */
         }
 
         return true;
@@ -229,10 +283,13 @@ public class AssemblyArea extends CodeArea {
 
     private static class DefaultContextMenu extends ContextMenu
     {
-        private final MenuItem fold, unfold, print;
+        private final MenuItem showInOutput, fold, unfold, print;
 
         public DefaultContextMenu()
         {
+            showInOutput = new MenuItem( "Show in output" );
+            showInOutput.setOnAction( AE -> { hide(); showInOutput(); } );
+
             fold = new MenuItem( "Fold selected text" );
             fold.setOnAction( AE -> { hide(); fold(); } );
 
@@ -242,7 +299,29 @@ public class AssemblyArea extends CodeArea {
             print = new MenuItem( "Print" );
             print.setOnAction( AE -> { hide(); print(); } );
 
-            getItems().addAll( fold, unfold, print );
+            getItems().addAll( showInOutput, fold, unfold, print );
+        }
+
+        // Shows the currently selected instruction in the output
+        private void showInOutput() {
+            CodeArea area = ((CodeArea) getOwnerNode());
+            String[] paragraphs = area.getText().split("\n");
+            int paragraphIndex = -1;
+            int currentParagraphIndex = area.getCurrentParagraph();
+            if (notAnInstruction(paragraphs[currentParagraphIndex])) return;
+
+            for (int i = 0; i < paragraphs.length; i++) {
+                String paragraph = paragraphs[i];
+                if (notAnInstruction(paragraph)) continue;
+                paragraphIndex++;
+                if (i == currentParagraphIndex) break;
+            }
+            if (paragraphIndex == -1) return;
+            JoJoWriteController.getInstance().output.selectRange(paragraphIndex, 4, paragraphIndex, 0);
+        }
+
+        private static boolean notAnInstruction(String s) {
+            return s.isEmpty() || s.startsWith(commentPrefix);
         }
 
         /**
