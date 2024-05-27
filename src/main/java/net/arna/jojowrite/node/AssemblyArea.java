@@ -9,6 +9,7 @@ import net.arna.jojowrite.DialogHelper;
 import net.arna.jojowrite.JoJoWriteController;
 import net.arna.jojowrite.asm.Compiler;
 import net.arna.jojowrite.asm.instruction.Instruction;
+import org.fxmisc.flowless.Virtualized;
 import org.fxmisc.richtext.CodeArea;
 import org.fxmisc.richtext.LineNumberFactory;
 import org.fxmisc.richtext.model.StyleSpan;
@@ -104,19 +105,11 @@ public class AssemblyArea extends CodeArea {
         if (lineNum.isEmpty()) return;
         try {
             final int paragraph = Integer.parseUnsignedInt(lineNum, 10) - 1; // Not zero-indexed
-            final double numParagraphs = getText().split("\n").length;
-            if (numParagraphs == 0 || paragraph > numParagraphs) return;
-            final double paragraphHeight = getTotalHeightEstimate() / numParagraphs; // Assuming all one-liners (must be, it's an ASM editor)
-            final double baseNewScrollY = paragraph * paragraphHeight;
-            // Same offsetting concept as OverwriteBox#assignParentPane()
-            final double newScrollY = baseNewScrollY - paragraphHeight * (baseNewScrollY / getTotalHeightEstimate());
             Platform.runLater(
                     () -> {
-                        selectRange(paragraph, 0, paragraph, 0);
-                        scrollToPixel(
-                                getEstimatedScrollX(),
-                                newScrollY
-                        );
+                        if (scrollToParagraph(paragraph)) {
+                            selectRange(paragraph, 0, paragraph, 0);
+                        }
                     }
             );
         } catch (Exception ignored) {}
@@ -135,7 +128,7 @@ public class AssemblyArea extends CodeArea {
     private void initDialogs() {
         // Styling for Find Hex String Dialog
         findDialog.setTitle("Find");
-        findDialog.setHeaderText("Find: ");
+        findDialog.setHeaderText("");
         final DialogPane findDialogPane = findDialog.getDialogPane();
         findDialogPane.getStyleClass().add("help-dialog");
         final TextField findDialogEditor = findDialog.getEditor();
@@ -144,27 +137,52 @@ public class AssemblyArea extends CodeArea {
         nextButton.addEventFilter(ActionEvent.ACTION,
                 event -> {
                     event.consume();
-
                     String text = findDialogEditor.getText();
                     if (text.isEmpty()) return;
                     int index = getText().indexOf(text, getCaretPosition());
                     if (index == -1) return;
-                    Platform.runLater(() ->
-                            selectRange(index, index + text.length())
-                    );
+                    Platform.runLater(() -> {
+                        selectRange(index, index + text.length());
+                        scrollToParagraph(getCurrentParagraph());
+                    });
                 }
         );
-
+        findDialog.setGraphic(null);
+        findDialogPane.setHeader(null);
 
         // Styling for Go To Dialog
         goToDialog.setTitle("Go To");
-        goToDialog.setHeaderText("Line: ");
-        goToDialog.getDialogPane().getStyleClass().add("help-dialog");
+        goToDialog.setHeaderText("");
+        final DialogPane goToDialogPane = goToDialog.getDialogPane();
+        goToDialogPane.getStyleClass().add("help-dialog");
         goToDialog.getEditor().getStyleClass().add("main");
         goToDialog.setOnShown(event -> Platform.runLater(() ->
                         goToDialog.getEditor().requestFocus()
                 )
         );
+        goToDialog.setGraphic(null);
+        goToDialogPane.setHeader(null);
+    }
+
+    /**
+     * Scrolls to a specified paragraph via {@link Virtualized#scrollToPixel}.
+     * @param index of paragraph
+     * @return Whether the scrolling was successful.
+     */
+    private boolean scrollToParagraph(int index) {
+        final double numParagraphs = getText().split("\n").length;
+        if (numParagraphs == 0 || index < 0 || index > numParagraphs) return false;
+        // Assuming all one-liners (must be, it's an ASM editor)
+        final double paragraphHeight = getTotalHeightEstimate() / numParagraphs;
+        final double baseNewScrollY = index * paragraphHeight;
+        // Same concept as OverwriteBox#assignParentPane()
+        final double newScrollY = baseNewScrollY - paragraphHeight * (baseNewScrollY / getTotalHeightEstimate());
+
+        scrollToPixel(
+                getEstimatedScrollX(),
+                newScrollY
+        );
+        return true;
     }
 
     /**
@@ -334,7 +352,7 @@ public class AssemblyArea extends CodeArea {
 
     private static class DefaultContextMenu extends ContextMenu
     {
-        private final MenuItem showInOutput, fold, unfold, print;
+        private final MenuItem showInOutput, fold, unfold;
 
         public DefaultContextMenu()
         {
@@ -347,13 +365,12 @@ public class AssemblyArea extends CodeArea {
             unfold = new MenuItem( "Unfold from cursor" );
             unfold.setOnAction( AE -> { hide(); unfold(); } );
 
-            print = new MenuItem( "Print" );
-            print.setOnAction( AE -> { hide(); print(); } );
-
-            getItems().addAll( showInOutput, fold, unfold, print );
+            getItems().addAll( showInOutput, fold, unfold );
         }
 
-        // Shows the currently selected instruction in the output
+        /**
+         * Shows the currently selected instruction in the output
+         */
         private void showInOutput() {
             CodeArea area = ((CodeArea) getOwnerNode());
             String[] paragraphs = area.getText().split("\n");
@@ -388,10 +405,6 @@ public class AssemblyArea extends CodeArea {
         private void unfold() {
             CodeArea area = (CodeArea) getOwnerNode();
             area.unfoldParagraphs( area.getCurrentParagraph() );
-        }
-
-        private void print() {
-            System.out.println( ((CodeArea) getOwnerNode()).getText() );
         }
     }
 }

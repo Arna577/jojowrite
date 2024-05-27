@@ -29,8 +29,8 @@ public class DialogHelper {
         dialog.initModality(Modality.NONE);
 
         DialogPane dialogPane = dialog.getDialogPane();
-        dialogPane.getButtonTypes().clear();
-        dialogPane.getButtonTypes().addAll(ButtonType.NEXT, ButtonType.CLOSE);
+        dialogPane.getButtonTypes().removeAll(ButtonType.OK);
+        dialogPane.getButtonTypes().addAll(ButtonType.NEXT);
         //final Button nextButton = (Button) dialogPane.lookupButton(ButtonType.NEXT);
         return dialog;
     }
