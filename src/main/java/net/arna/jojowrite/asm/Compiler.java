@@ -61,6 +61,13 @@ public class Compiler {
     }
 
     /**
+     * Gets whether the error log has any entries.
+     */
+    public static boolean noLoggedErrors() {
+        return errorLog.isEmpty();
+    }
+
+    /**
      * Appends a new error to the error log.
      */
     public static void raiseError(String err) {

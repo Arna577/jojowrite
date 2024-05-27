@@ -1,8 +1,8 @@
 package net.arna.jojowrite.node;
 
-import javafx.scene.control.ContextMenu;
-import javafx.scene.control.MenuItem;
-import javafx.scene.control.TextInputDialog;
+import javafx.application.Platform;
+import javafx.event.ActionEvent;
+import javafx.scene.control.*;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import net.arna.jojowrite.DialogHelper;
@@ -24,24 +24,27 @@ import static net.arna.jojowrite.TextStyles.*;
 public class AssemblyArea extends CodeArea {
     /**
      * Maps key characters with a style from {@link net.arna.jojowrite.TextStyles}.
-     * Used in {@link AssemblyArea#styleAssemblyParagraph(int, String)}.
+     * Used in {@link #styleAssemblyParagraph(int, String)}.
      */
-    private final Map<Character, String> styleMap = new HashMap<>(
+    private final Map<Character, Set<String>> styleMap = new HashMap<>(
             Map.of(
-                    '(', BASIC_TEXT,
-                    ')', BASIC_TEXT,
-                    ',', BASIC_TEXT,
-                    '@', AT_SYMBOL,
-                    '#', TEMP_OVERWRITE_TEXT
+                    '(', Collections.singleton(BASIC_TEXT),
+                    ')', Collections.singleton(BASIC_TEXT),
+                    ',', Collections.singleton(BASIC_TEXT),
+                    '@', Collections.singleton(AT_SYMBOL),
+                    '#', Collections.singleton(TEMP_OVERWRITE_TEXT)
             )
     );
 
     private static final StringBuilder outputBuilder = new StringBuilder();
 
-    private final TextInputDialog findDialog = DialogHelper.createStyledTextInputDialog();
+    private final TextInputDialog findDialog = DialogHelper.createFindDialog();
     private final TextInputDialog goToDialog = DialogHelper.createStyledTextInputDialog();
 
-    public static final String commentPrefix = "//";
+    private static final Set<String> keywordTextStyle = Collections.singleton(KEYWORD_TEXT);
+    private static final Set<String> commentTextStyle = Collections.singleton(COMMENT_TEXT);
+
+    public static final String commentPrefix = "/";
 
     public AssemblyArea() {
         setTextInsertionStyle(Collections.singleton(PARAMETER_TEXT));
@@ -56,24 +59,14 @@ public class AssemblyArea extends CodeArea {
             if (event.isControlDown()) {
                 if (event.getCode() == KeyCode.G) { // Ctrl + G - Go to Line
                     event.consume();
-                    goToDialog.showAndWait().ifPresent(lineNum -> {
-                        if (lineNum.isEmpty()) return;
-                        try {
-                            int paragraph = Integer.parseUnsignedInt(lineNum, 10) - 1; // Not zero-indexed
-                            if (paragraph > getText().split("\n").length) return;
-                            selectRange(paragraph, 0, paragraph, 0);
-                        } catch (Exception ignored) {}
-                    });
+                    goToDialog.getEditor().requestFocus();
+                    goToDialog.showAndWait().ifPresent(this::goToLine);
                 }
                 //todo: actually good find menu (find all occurrences then let user go through them)
                 if (event.getCode() == KeyCode.F) { // Ctrl + F - Find Text
                     event.consume();
-                    findDialog.showAndWait().ifPresent(text -> {
-                        if (text.isEmpty()) return;
-                        int index = getText().indexOf(text);
-                        if (index == -1) return;
-                        selectRange(index, index + text.length());
-                    });
+                    findDialog.getEditor().requestFocus();
+                    findDialog.show();
                 }
             }
         });
@@ -81,42 +74,97 @@ public class AssemblyArea extends CodeArea {
         setOnKeyTyped(
                 event -> {
                     JoJoWriteController.getInstance().clearOutput();
-                    Compiler.clearErrors();
-
                     // Autocompletes the next address on the new line, provided the line on which the user pressed enter starts with an address.
                     if (event.getCharacter().equals("\r") || event.getCharacter().equals("\n")) {
-                        int paragraphID = getCurrentParagraph();
-                        if (--paragraphID >= 0) {
-                            String lastParagraph = getText(paragraphID);
-                            if (lastParagraph.length() >= 8) {
-                                String address = lastParagraph.substring(0, 8);
-                                try {
-                                    int lastAddress = Integer.parseUnsignedInt(address, 16);
-                                    String nextAddress = Integer.toString(lastAddress + 2, 16);
-                                    nextAddress = ("00000000" + nextAddress).substring(nextAddress.length());
-                                    insertText(getCaretPosition(), nextAddress + ':');
-                                } catch (NumberFormatException ignored) {}
+                        if (event.isShiftDown()) {
+                            insertText(getCaretPosition(), "\r");
+                        } else {
+                            int paragraphID = getCurrentParagraph();
+                            if (--paragraphID >= 0) {
+                                String lastParagraph = getText(paragraphID);
+                                if (lastParagraph.length() >= 8) {
+                                    String address = lastParagraph.substring(0, 8);
+                                    try {
+                                        int lastAddress = Integer.parseUnsignedInt(address, 16);
+                                        String nextAddress = Integer.toString(lastAddress + 2, 16);
+                                        nextAddress = ("00000000" + nextAddress).substring(nextAddress.length());
+                                        insertText(getCaretPosition(), nextAddress + ':');
+                                    } catch (NumberFormatException ignored) {}
+                                }
                             }
                         }
                     }
 
-                    update();
+                    queueUpdate();
                 }
         );
+    }
+
+    private void goToLine(String lineNum) {
+        if (lineNum.isEmpty()) return;
+        try {
+            final int paragraph = Integer.parseUnsignedInt(lineNum, 10) - 1; // Not zero-indexed
+            final double numParagraphs = getText().split("\n").length;
+            if (numParagraphs == 0 || paragraph > numParagraphs) return;
+            final double paragraphHeight = getTotalHeightEstimate() / numParagraphs; // Assuming all one-liners (must be, it's an ASM editor)
+            final double baseNewScrollY = paragraph * paragraphHeight;
+            // Same offsetting concept as OverwriteBox#assignParentPane()
+            final double newScrollY = baseNewScrollY - paragraphHeight * (baseNewScrollY / getTotalHeightEstimate());
+            Platform.runLater(
+                    () -> {
+                        selectRange(paragraph, 0, paragraph, 0);
+                        scrollToPixel(
+                                getEstimatedScrollX(),
+                                newScrollY
+                        );
+                    }
+            );
+        } catch (Exception ignored) {}
+    }
+
+    private class UpdateTask extends TimerTask {
+        @Override public void run() { Platform.runLater(AssemblyArea.this::update); }
+    }
+    private Timer updateTimer = new Timer();
+    private void queueUpdate() {
+        updateTimer.cancel();
+        updateTimer = new Timer();
+        updateTimer.schedule(new UpdateTask(), 350);
     }
 
     private void initDialogs() {
         // Styling for Find Hex String Dialog
         findDialog.setTitle("Find");
         findDialog.setHeaderText("Find: ");
-        findDialog.getDialogPane().getStyleClass().add("help-dialog");
-        findDialog.getEditor().getStyleClass().add("main");
+        final DialogPane findDialogPane = findDialog.getDialogPane();
+        findDialogPane.getStyleClass().add("help-dialog");
+        final TextField findDialogEditor = findDialog.getEditor();
+        findDialogEditor.getStyleClass().add("main");
+        final Button nextButton = (Button) findDialogPane.lookupButton(ButtonType.NEXT);
+        nextButton.addEventFilter(ActionEvent.ACTION,
+                event -> {
+                    event.consume();
+
+                    String text = findDialogEditor.getText();
+                    if (text.isEmpty()) return;
+                    int index = getText().indexOf(text, getCaretPosition());
+                    if (index == -1) return;
+                    Platform.runLater(() ->
+                            selectRange(index, index + text.length())
+                    );
+                }
+        );
+
 
         // Styling for Go To Dialog
         goToDialog.setTitle("Go To");
         goToDialog.setHeaderText("Line: ");
         goToDialog.getDialogPane().getStyleClass().add("help-dialog");
         goToDialog.getEditor().getStyleClass().add("main");
+        goToDialog.setOnShown(event -> Platform.runLater(() ->
+                        goToDialog.getEditor().requestFocus()
+                )
+        );
     }
 
     /**
@@ -140,9 +188,9 @@ public class AssemblyArea extends CodeArea {
 
                 if (firstVisibleParagraphIndex <= i && i <= lastVisibleParagraphIndex) { // Visible
                     if (paragraph.startsWith(commentPrefix)) { // Comments
-                        setStyleClass(startIndex, startIndex + paraLength, COMMENT_TEXT);
+                        setStyle(startIndex, startIndex + paraLength, commentTextStyle);
                     } else { // Assembly
-                        styleAssemblyParagraph(startIndex, i, paragraph);
+                        styleAssemblyParagraph(startIndex, paragraph);
                     }
                 }
 
@@ -162,6 +210,8 @@ public class AssemblyArea extends CodeArea {
      */
     public void update() {
         long ms = System.currentTimeMillis();
+
+        Compiler.clearErrors();
 
         outputBuilder.setLength(0);
 
@@ -186,12 +236,12 @@ public class AssemblyArea extends CodeArea {
                 boolean modified = lastModifiedCharacter >= startIndex - paraLength && firstModifiedCharacter <= startIndex + paraLength;
 
                 if (paragraph.startsWith(commentPrefix)) { // Comments
-                    if (visible) setStyleClass(startIndex, startIndex + paraLength, COMMENT_TEXT);
+                    if (visible) setStyle(startIndex, startIndex + paraLength, commentTextStyle);
                 } else { // Assembly
                     Compiler.openErrorLog(i);
                     boolean success = processAssemblyParagraph(i, paragraph);
                     if ( (visible || modified) && success )
-                        styleAssemblyParagraph(startIndex, i, paragraph);
+                        styleAssemblyParagraph(startIndex, paragraph);
                 }
 
                 startIndex += paraLength + 1; // Account for omitted \n
@@ -213,30 +263,29 @@ public class AssemblyArea extends CodeArea {
      * Styles a paragraph assuming it contains an address pointer and Assembly instruction.
      * @param startIndex The character index, within the context of {@link AssemblyArea#getText()}
      */
-    private void styleAssemblyParagraph(int startIndex, int paraIndex, String paragraph) {
+    private void styleAssemblyParagraph(int startIndex, String paragraph) {
         //long ms = System.currentTimeMillis();
-        int paraLength = paragraph.length();
+        final int paraLength = paragraph.length();
         if (paraLength < 9) return;
 
-        setStyleSpans(paraIndex, 0, addressPrefixStyle);
+        setStyleSpans(startIndex, addressPrefixStyle);
 
         // Style keyword
-        final int keywordEndIndex = paragraph.indexOf(' ');
+        final int keywordEndIndex = paragraph.indexOf(" ", 10); // 8 address digits, ':', minimum 2 character instruction keyword, zero-based indexing
         if (keywordEndIndex == -1) {
-            setStyleClass( startIndex + 9, startIndex + paraLength, KEYWORD_TEXT);
+            setStyle( startIndex + 9, startIndex + paraLength, keywordTextStyle);
             return;
         } else {
-            setStyleClass( startIndex + 9, startIndex + keywordEndIndex, KEYWORD_TEXT);
+            setStyle( startIndex + 9, startIndex + keywordEndIndex, keywordTextStyle);
         }
 
         // Style specific characters
         for (int i = keywordEndIndex; i < paraLength; i++) {
-            String style = styleMap.get(paragraph.charAt(i));
+            Collection<String> style = styleMap.get(paragraph.charAt(i));
             if (style == null) continue;
             int charIndex = startIndex + i;
-            setStyleClass(charIndex, charIndex + 1, style);
+            setStyle(charIndex, charIndex + 1, style);
         }
-
         //System.out.println("Completed AssemblyArea#styleAssemblyParagraph() in: " + (System.currentTimeMillis() - ms) + "ms.");
     }
 
@@ -268,7 +317,9 @@ public class AssemblyArea extends CodeArea {
         final String instructionStr = tokens[1];
         if (instructionStr.isEmpty()) return false;
         final List<Instruction> possible = Compiler.getPossibleInstructions(addressStr, instructionStr).toList();
-        if (possible.size() == 1) {
+        if (possible.isEmpty()) {
+            if (Compiler.noLoggedErrors()) Compiler.raiseError("Unrecognized instruction: " + instructionStr);
+        } else if (possible.size() == 1) {
             Compiler.clearErrors(lineIndex);
             outputBuilder.append(Compiler.compileToHexString(possible.get(0), addressStr, instructionStr)).append('\n');
             /*
@@ -316,7 +367,7 @@ public class AssemblyArea extends CodeArea {
                 paragraphIndex++;
                 if (i == currentParagraphIndex) break;
             }
-            if (paragraphIndex == -1) return;
+            if (paragraphIndex == -1 || paragraphIndex >= paragraphs.length) return;
             JoJoWriteController.getInstance().output.selectRange(paragraphIndex, 4, paragraphIndex, 0);
         }
 

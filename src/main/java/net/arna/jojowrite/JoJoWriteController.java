@@ -244,14 +244,9 @@ public class JoJoWriteController implements Initializable {
 
         try
         {
-            FileReader reader = new FileReader( files.get(FileType.PATCH) );
-            BufferedReader br = new BufferedReader(reader);
-            StringBuilder content = new StringBuilder();
-            int c;
-            while ((c = br.read()) != -1) content.append((char)c);
-            patchArea.appendText(content.toString());
-            br.close();
-
+            patchArea.appendText(
+                    Files.readString(files.get(FileType.PATCH).toPath())
+            );
             patchArea.update();
             patchArea.requestFocus();
         }
@@ -398,7 +393,7 @@ public class JoJoWriteController implements Initializable {
                         BufferedReader bufferedReader = new BufferedReader(reader);
                         String line;
                         while ( (line = bufferedReader.readLine()) != null) {
-                            if (line.isEmpty() || line.startsWith("/")) continue;
+                            if (line.isEmpty() || line.startsWith(AssemblyArea.commentPrefix)) continue;
                             String[] addressInstruction = line.split(":"); // Address:Instruction
 
                             String addressStr = addressInstruction[0];
@@ -571,14 +566,9 @@ public class JoJoWriteController implements Initializable {
 
         try
         {
-            File asmFile = files.get(FileType.ASSEMBLY);
-            FileReader reader = new FileReader(asmFile);
-            BufferedReader br = new BufferedReader(reader);
-            StringBuilder content = new StringBuilder((int) asmFile.length());
-            int c;
-            while ((c = br.read()) != -1) content.append((char)c);
-            assemblyArea.appendText(content.toString());
-            br.close();
+            assemblyArea.appendText(
+                    Files.readString(files.get(FileType.ASSEMBLY).toPath())
+            );
 
             if (assemblyArea.getText().isEmpty()) {
                 assemblyArea.appendText("//Example comment & instruction\n");
