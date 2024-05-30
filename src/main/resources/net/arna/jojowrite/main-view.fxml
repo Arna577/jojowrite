@@ -8,6 +8,7 @@
 <?import org.fxmisc.richtext.StyleClassedTextArea?>
 <?import net.arna.jojowrite.node.OverwriteBox?>
 <?import net.arna.jojowrite.node.PatchArea?>
+<?import net.arna.jojowrite.node.ROMBox?>
 <BorderPane xmlns="http://javafx.com/javafx/8.0.111" xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="net.arna.jojowrite.JoJoWriteController" styleClass="main">
     <top>
@@ -67,9 +68,14 @@
     </bottom>
 
     <left>
-        <ScrollPane prefWidth="240" fx:id="errorScrollPane" fitToWidth="true" fitToHeight="true" styleClass="scroll-pane">
-            <TextArea fx:id="errorArea" editable="false" wrapText="true" styleClass="error-area"/>
-        </ScrollPane>
+        <StackPane>
+            <ScrollPane prefWidth="240" fx:id="errorScrollPane" fitToWidth="true" fitToHeight="true" styleClass="scroll-pane">
+                <TextArea fx:id="errorArea" editable="false" wrapText="true" styleClass="error-area"/>
+            </ScrollPane>
+            <VBox fx:id="romData">
+                <Label fx:id="romAreaAddress"/>
+            </VBox>
+        </StackPane>
     </left>
 
     <center>
@@ -80,14 +86,7 @@
                 </content>
             </VirtualizedScrollPane>
 
-            <HBox fx:id="romTextBox">
-                <VirtualizedScrollPane fx:id="precisionROMScrollPane" minWidth="308.1" prefWidth="615.9" vbarPolicy="NEVER" styleClass="scroll-pane">
-                    <content>
-                        <ROMArea fx:id="romArea" wrapText="true" styleClass="code-area"/>
-                    </content>
-                </VirtualizedScrollPane>
-                <ScrollBar fx:id="romScrollBar" blockIncrement="20.0" orientation="VERTICAL" styleClass="scroll-pane"/>
-            </HBox>
+            <ROMBox fx:id="romBox" minWidth="329.1" prefWidth="615"/>
 
             <VirtualizedScrollPane fx:id="patchScrollPane" styleClass="scroll-pane">
                 <content>

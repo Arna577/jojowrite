@@ -55,6 +55,10 @@
 }
 */
 
+.overwrite-field .caret {
+    -fx-stroke: #000000;
+}
+
 /* Buttons */
 .button {
     -fx-border-width: 1;

@@ -4,8 +4,12 @@ import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.Node;
-import javafx.scene.control.*;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.TextArea;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
 import javafx.stage.StageStyle;
 import net.arna.jojowrite.JJWUtils.FileType;
 import net.arna.jojowrite.asm.Compiler;
@@ -26,7 +30,6 @@ import java.util.stream.Stream;
 import static net.arna.jojowrite.JJWUtils.ASSEMBLY_FILE_EXTENSION;
 import static net.arna.jojowrite.JJWUtils.OVERWRITE_FILE_EXTENSION;
 import static net.arna.jojowrite.TextStyles.BASIC_TEXT;
-import static net.arna.jojowrite.TextStyles.OVERWRITTEN_TEXT;
 
 public class JoJoWriteController implements Initializable {
     private static JoJoWriteController instance;
@@ -69,13 +72,12 @@ public class JoJoWriteController implements Initializable {
         public PatchArea patchArea;
 
     @FXML
-    public HBox romTextBox;
+    public ROMBox romBox;
+        private ROMArea romArea;
+    @FXML
+    public VBox romData;
         @FXML
-        public VirtualizedScrollPane<?> precisionROMScrollPane;
-        @FXML
-        public ScrollBar romScrollBar;
-        @FXML
-        public ROMArea romArea;
+        public Label romAreaAddress;
 
     private Map<FileType, Set<Node>> fileTypeNodeMap;
 
@@ -89,7 +91,7 @@ public class JoJoWriteController implements Initializable {
         instance = this;
 
         Set<Node> assemblyNodes = Set.of(errorScrollPane, assemblyScrollPane, outputScrollPane);
-        Set<Node> overwriteNodes = Set.of(romTextBox, overwriteScrollPane, overwrites, overwriteControls);
+        Set<Node> overwriteNodes = Set.of(romData, romBox, overwriteScrollPane, overwrites, overwriteControls);
         //Set<Node> romNodes = Set.of(romTextBox);
         Set<Node> patchNodes = Set.of(patchControls, patchScrollPane);
 
@@ -98,17 +100,6 @@ public class JoJoWriteController implements Initializable {
                 FileType.PATCH, patchNodes,
                 FileType.OVERWRITE, overwriteNodes
                 //FileType.ROM, romNodes
-        );
-
-        romScrollBar.valueProperty().addListener(
-                (observable, oldValue, newValue) -> {
-                    long romLength = files.get(FileType.ROM).length();
-                    if (romScrollBar.getMax() != romLength) {
-                        System.out.println("Incorrect romScrollBar maximum detected!");
-                        romScrollBar.setMax(romLength);
-                    }
-                    displayROMAt(newValue.intValue());
-                }
         );
 
         /*
@@ -121,6 +112,8 @@ public class JoJoWriteController implements Initializable {
             JJWUtils.printException(e, "Reflection failed.");
         }
          */
+
+        romBox.getArea().setAddressOutputLabel(romAreaAddress);
 
         // Loads overwrites any time the overwriteLoadQueue isn't empty
         overwriteLoadTimer.scheduleAtFixedRate(new OverwriteLoadTask(), 0, 1);
@@ -271,6 +264,7 @@ public class JoJoWriteController implements Initializable {
     public void loadWorkspace() {
         File patch = files.get(FileType.PATCH);
         if (patch == null) patch = selectPatch();
+        if (patch == null) return;
 
         try
         {
@@ -450,8 +444,7 @@ public class JoJoWriteController implements Initializable {
     public void openROMFile() {
         selectROMFile();
         setOpenType(files.containsKey(FileType.OVERWRITE) ? FileType.OVERWRITE : FileType.ROM);
-        romScrollBar.setValue(0.0);
-        displayROMAt(0);
+        romBox.goToZero();
     }
 
     public File selectROMFile() {
@@ -463,24 +456,23 @@ public class JoJoWriteController implements Initializable {
      * Called within {@link FileMap#put(FileType, File)} every time the ROM file entry is placed into.
      */
     void updateROMArea(File ROM) {
-        if (openType == FileType.OVERWRITE || openType == FileType.ROM) {
-            try {
-                if (romRAF != null) romRAF.close();
-                if (ROM != null) {
-                    romRAF = new RandomAccessFile(ROM, "r");
-                    romScrollBar.setMax(ROM.length());
-                    displayROMAt(0);
+        try {
+            if (romRAF != null) romRAF.close();
+            if (ROM != null) {
+                romRAF = new RandomAccessFile(ROM, "r");
+                romBox.setRomRAF(romRAF);
+                if (openType == FileType.OVERWRITE || openType == FileType.ROM) {
+                    romBox.goToZero();
                 }
-            } catch (Exception e) {
-                JJWUtils.printException(e, "An error occurred while opening ROM file.");
             }
+        } catch (Exception e) {
+            JJWUtils.printException(e, "An error occurred while opening ROM file.");
         }
     }
 
     public void openSelectedROMFile() {
         openSelectedFile(FileType.ROM);
-        romScrollBar.setValue(0.0);
-        displayROMAt(0);
+        romBox.goToZero();
     }
 
     public void selectOutROMFile() {
@@ -528,7 +520,7 @@ public class JoJoWriteController implements Initializable {
             JJWUtils.printException(e, "An error occurred while opening overwrite file.");
         }
 
-        romArea.requestFocus();
+        romBox.getArea().requestFocus();
         refreshOverwrites();
         overwrites.updateVisibility();
     }
@@ -630,25 +622,12 @@ public class JoJoWriteController implements Initializable {
     }
 
     public void showInROM(int address, int length) {
-        if (romArea.getText().isEmpty()) return;
-        try {
-            if (address > romRAF.length()) return;
-            romScrollBar.setValue(address); // Causes displayROMAt(address) via ChangeListener
-            romArea.selectRange(0, length);
-        } catch (IOException e) {
-            JJWUtils.printException(e, "Something went wrong while reading the ROM files length!");
-        }
-    }
-
-    // ADDRESS INCREMENTS PER BYTE (OR TWO HEX DIGITS)
-    private static final int MAX_ROM_DISPLAY_LENGTH = 1024; //4096
-    // Self-explanatory name. If you wish to show something in the ROM, use showInROM.
-    private void displayROMAt(long address) {
-        if (romRAF == null) {
-            File ROM = files.get(FileType.ROM);
+        if (romBox.getRomRAF() == null) {
+            File ROM = files.get(JJWUtils.FileType.ROM);
             if (ROM == null) return;
             try {
                 romRAF = new RandomAccessFile(ROM, "r");
+                romBox.setRomRAF(romRAF);
                 System.out.println("romRAF was unset despite valid ROM file in FileMap!");
             } catch (Exception e) {
                 JJWUtils.printException(e, "Couldnt access ROM file despite it existing in the FileMap!");
@@ -656,84 +635,122 @@ public class JoJoWriteController implements Initializable {
             }
         }
 
-        romArea.setAddress(address);
-        romArea.clear();
+        if (romBox.getArea().getText().isEmpty()) return;
 
         try {
-            byte[] bytes = new byte[MAX_ROM_DISPLAY_LENGTH];
-            if (address > romRAF.length()) {
-                throw new IOException("Attempted to read outside file bounds!");
-            }
-
-            romRAF.seek(address);
-            int bytesRead = romRAF.read(bytes);
-            if (bytesRead != -1) {
-                byte[] newBytes = new byte[bytesRead];
-                System.arraycopy(bytes, 0, newBytes, 0, bytesRead);
-                //System.out.println("Read " + bytesRead + " bytes.");
-
-                romArea.setWritingOriginal(true);
-                romArea.append(JJWUtils.bytesToHex(newBytes), BASIC_TEXT);
-                romArea.setWritingOriginal(false);
-
-                displayROMOverwrites();
-            }
+            if (address > romRAF.length()) return;
+            romBox.getScrollBar().setValue(address); // Causes displayROMAt(address) via ChangeListener
+            romBox.getArea().selectRange(0, length);
         } catch (IOException e) {
-            JJWUtils.printException(e, "Something went wrong while reading ROM file!");
+            JJWUtils.printException(e, "Something went wrong while reading the ROM files length!");
         }
     }
 
     /**
-     * Clears out any temporary changes to the {@link JoJoWriteController#romArea} and displays all in-bounds {@link JoJoWriteController#overwrites}.
+     * Clears out any temporary changes to the main {@link ROMBox#getArea()} and displays all in-bounds {@link JoJoWriteController#overwrites}.
      */
     public void refreshOverwrites() {
-        romArea.restoreOriginal();
+        romBox.getArea().restoreOriginal();
         displayROMOverwrites();
     }
 
-    public void findAndDisplayInROM(String hexStr) {
+    /**
+     * Finds a set of bytes in the ROM (extracted from hexStr) at or after offsetAddress, then shows them.
+     * @param hexStr
+     * @param offsetAddress
+     */
+    public void findAndDisplayInROM(String hexStr, long offsetAddress) {
+        if (hexStr.length() % 2 == 1) {
+            System.out.println("Uneven digit count in Hex byte string!");
+            return;
+        }
         byte[] bytes = JJWUtils.hexStringToBytes(hexStr);
         int hexStrLength = bytes.length;
-        byte[] readBytes = new byte[hexStrLength];
         try {
-            //todo: optimize
-            romRAF.seek(0);
+            int romRAFLength = (int) romRAF.length();
+
+            /*
+             The buffer size:
+             * Must be equal to or larger than the hex strings length
+             * Must be equal to or smaller than the file length
+             */
+            int bufferSize = 1024;
+
+            if (hexStrLength > bufferSize) {
+                bufferSize = hexStrLength;
+            }
+
+            if (bufferSize > romRAFLength) {
+                System.out.println("Input bytes length is longer than file!");
+                return;
+            }
+
+            romRAF.seek(offsetAddress);
+
+            byte[] readBytes = new byte[bufferSize];
+            while (romRAF.read(readBytes) != -1) {
+                int matchingBytes = 0;
+                for (int i = 0; i < bufferSize; i++) {
+                    // Match sequentially
+                    if (bytes[matchingBytes] == readBytes[i]) {
+                        matchingBytes++;
+                    } else {
+                        if (bytes[0] == readBytes[i]) {
+                            // If mismatched current byte in sequence but found a match for the first byte again
+                            matchingBytes = 1;
+                        } else {
+                            // True mismatch
+                            matchingBytes = 0;
+                        }
+                    }
+
+                    if (matchingBytes == hexStrLength) { // Match found
+                        showInROM((int) romRAF.getFilePointer() - bufferSize - hexStrLength + i + 1, hexStrLength * 2);
+                        return;
+                    }
+
+                    //todo: fix this not working
+                    if (matchingBytes > 0 && i == bufferSize - 1) { // Partial match, but reached end of buffer
+                        long alignedBufferEndPointer = romRAF.getFilePointer();
+                        romRAF.seek(alignedBufferEndPointer - matchingBytes); // Seek start of match
+                        byte[] speculativeMatch = new byte[hexStrLength];
+                        romRAF.read(speculativeMatch); // Read possibly matching bytes
+                        int mismatchIndex = Arrays.mismatch(bytes, speculativeMatch);
+                        if (mismatchIndex < 0) { // If equal, display
+                            showInROM((int) alignedBufferEndPointer - bufferSize - hexStrLength + i + 1, hexStrLength * 2);
+                            return;
+                        } else { // If not equal, continue searching...
+                            System.out.println("Bytes: ");
+                            System.out.println(Arrays.toString(bytes));
+                            System.out.println("Checked: ");
+                            System.out.println(Arrays.toString(speculativeMatch));
+                            System.out.println("Speculative mismatch at " + mismatchIndex + ", continuing...");
+                            romRAF.seek(alignedBufferEndPointer);
+                        }
+                    }
+                }
+            }
+
+
+            /*
+            romRAF.seek(offsetAddress);
             while (romRAF.read(readBytes) != -1) {
                 if (Arrays.equals(readBytes, bytes)) {
-                    showInROM((int) romRAF.getFilePointer() - hexStrLength, hexStrLength);
+                    showInROM((int) romRAF.getFilePointer() - hexStrLength, hexStrLength * 2);
                     break;
                 }
             }
+             */
         } catch (Exception e) {
             JJWUtils.printException(e, "Failed to find and display " + hexStr + " in ROM!");
         }
     }
 
     /**
-     * Displays all Overwrites that reside within the currently rendered {@link JoJoWriteController#romArea} as text styled with {@link TextStyles#OVERWRITTEN_TEXT}.
+     * Displays all Overwrites that reside within the currently rendered {@link ROMBox#getArea()} as text styled with {@link TextStyles#OVERWRITTEN_TEXT}.
      */
     private void displayROMOverwrites() {
-        long address = romArea.getAddress();
-
-        for (Node node : overwrites.getChildren()) {
-            if (node instanceof Overwrite overwrite) {
-                var byteMap = overwrite.getByteStrings();
-                int overwriteAddress = overwrite.getAddress();
-                for (int i = 0; i < byteMap.size(); i++) {
-                    // Bytes
-                    // If we ever wish to support larger file sizes, all that is required is that overwrite addresses are also longs, then we downcast the subtraction.
-                    int byteTextAddress = overwriteAddress - (int)address + i; // Relativize
-                    if (byteTextAddress < 0) continue;
-                    if (byteTextAddress >= romArea.getLength() / 2) continue;
-
-                    // Characters (2/Byte)
-                    int characterIndex = byteTextAddress * 2;
-                    romArea.replace(characterIndex, characterIndex + 2, byteMap.get(i), OVERWRITTEN_TEXT);
-                }
-            }
-        }
-
-        romArea.resetUndoManager();
+        romBox.displayOverwrites(overwrites);
     }
 
     public void showOverwriteHelp() {
@@ -780,7 +797,7 @@ public class JoJoWriteController implements Initializable {
     }
 
     public FileType getOpenType() {
-        return getOpenType();
+        return openType;
     }
 
     public void clearOutput() {

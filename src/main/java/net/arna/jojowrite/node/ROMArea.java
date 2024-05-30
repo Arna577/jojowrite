@@ -1,10 +1,12 @@
 package net.arna.jojowrite.node;
 
-import javafx.scene.control.TextFormatter;
-import javafx.scene.control.TextInputDialog;
+import javafx.application.Platform;
+import javafx.event.ActionEvent;
+import javafx.scene.control.*;
 import javafx.scene.effect.BlendMode;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
+import javafx.scene.input.ScrollEvent;
 import javafx.scene.paint.Paint;
 import javafx.scene.shape.Line;
 import net.arna.jojowrite.DialogHelper;
@@ -23,17 +25,38 @@ public class ROMArea extends StyleClassedTextArea {
 
     private long address = 0x00000000;
 
-    private static final int NUM_LINES = 33;
-    private static final double BYTE_WIDTH = 19.2;
+    private static final int NUM_LINES = 34;
+    public static final double BYTE_WIDTH = 19.25;
     private final Line[] lines = new Line[NUM_LINES];
 
-    private final TextInputDialog findDialog = DialogHelper.createStyledTextInputDialog();
-    private final TextInputDialog goToDialog = DialogHelper.createStyledTextInputDialog();
+    private final TextInputDialog findDialog = DialogHelper.createFindDialog("Find Hex string", "");
+    private final TextInputDialog goToDialog = DialogHelper.createStyledTextInputDialog("Go to", "");
+
+    private ScrollBar scrollBar;
+    private Label addressOutputLabel;
 
     public ROMArea() {
         super();
 
+        setWrapText(true);
+
         initDialogs();
+
+        caretPositionProperty().addListener(observable -> {
+            if (addressOutputLabel == null) return;
+            String hex = Long.toHexString(getAddress() + getCaretPosition() / 2);
+            addressOutputLabel.setText(
+                    ("00000000" + hex).substring(hex.length())
+            );
+        });
+
+        //setOnScroll(null);
+        addEventFilter(ScrollEvent.ANY, event -> {
+            if (event.getDeltaY() > 0) scrollBar.decrement();
+            else scrollBar.increment();
+        });
+
+        //todo: disable dragging bytes around ffs
 
         // Input handlers
         addEventFilter(KeyEvent.KEY_PRESSED, event -> {
@@ -73,17 +96,19 @@ public class ROMArea extends StyleClassedTextArea {
                         if (addressStr.isEmpty()) return;
                         try {
                             int address = Integer.parseUnsignedInt(addressStr, 16);
-                            JoJoWriteController.getInstance().romScrollBar.setValue(address);
+                            scrollBar.setValue(address);
                             selectRange(0, 0);
-                        } catch (Exception ignored) {}
+                        } catch (Exception ignored) {
+                        }
                     });
                 }
                 if (keyCode == KeyCode.F) { // Ctrl + F - Find Hex string
                     event.consume();
-                    findDialog.showAndWait().ifPresent(hexStr -> {
-                        if (hexStr.isEmpty()) return;
-                        JoJoWriteController.getInstance().findAndDisplayInROM(hexStr);
-                    });
+                    if (findDialog.isShowing()) {
+                        //todo: figure out how to focus windows that r already showing
+                    } else {
+                        findDialog.show();
+                    }
                 }
             }
         });
@@ -91,7 +116,7 @@ public class ROMArea extends StyleClassedTextArea {
         //setParagraphGraphicFactory(LineNumberFactory.get(this));
 
         for (int i = 0; i < NUM_LINES; i++) {
-            double x = i * BYTE_WIDTH + 1;
+            double x = i * BYTE_WIDTH;
             Line line = new Line(x, 0, x, 0);
             lines[i] = line;
             line.setStroke(Paint.valueOf("#455A64"));
@@ -100,29 +125,71 @@ public class ROMArea extends StyleClassedTextArea {
         }
 
         widthProperty().addListener((observable, oldValue, newValue) -> {
-            for (int i = 0; i < NUM_LINES; i++)
-                lines[i].setVisible(i * BYTE_WIDTH + 1 <= newValue.doubleValue());
+            for (int i = 0; i < NUM_LINES; i++) lines[i].setVisible(i * BYTE_WIDTH <= newValue.doubleValue());
+            calculateByteCapacity();
         });
 
         heightProperty().addListener((observable, oldValue, newValue) -> {
-            for (int i = 0; i < NUM_LINES; i++)
-                lines[i].setEndY(newValue.doubleValue());
+            for (int i = 0; i < NUM_LINES; i++) lines[i].setEndY(newValue.doubleValue());
+            calculateByteCapacity();
         });
+
+        //needsLayoutProperty().addListener(observable -> calculateByteCapacity());
+    }
+
+    public void setAddressOutputLabel(Label addressOutputLabel) {
+        this.addressOutputLabel = addressOutputLabel;
+    }
+
+    public void setScrollBar(ScrollBar scrollBar) {
+        this.scrollBar = scrollBar;
+    }
+
+    private int byteCapacity = 0x0400;
+
+    /**
+     * Calculates how many bytes would fit neatly into the viewport.
+     * Works for lower heights but fucks up on higher ones for some reason
+     */
+    private void calculateByteCapacity() {
+        double x = getWidth(), y = getViewportHeight();
+        byteCapacity = (int) (x / BYTE_WIDTH) * (int) (y / 22.75);
+    }
+
+    public int getByteCapacity() {
+        return byteCapacity;
     }
 
     private void initDialogs() {
         // Styling for Find Hex String Dialog
-        findDialog.setTitle("Find Hex String");
-        findDialog.setHeaderText("Hex value: ");
-        findDialog.getDialogPane().getStyleClass().add("help-dialog");
-        findDialog.getEditor().getStyleClass().add("main");
+        final DialogPane findDialogPane = findDialog.getDialogPane();
+        findDialogPane.getStyleClass().add("help-dialog");
+        final TextField findDialogEditor = findDialog.getEditor();
+        findDialogEditor.getStyleClass().add("main");
+        findDialogEditor.setMaxWidth(Double.POSITIVE_INFINITY);
+        findDialogEditor.setTextFormatter(JJWUtils.hexadecimalTextFormatter());
+        final Button nextButton = (Button) findDialogPane.lookupButton(ButtonType.NEXT);
+        nextButton.addEventFilter(ActionEvent.ACTION,
+                event -> {
+                    event.consume();
+                    String hexStr = findDialogEditor.getText();
+                    if (hexStr.isEmpty()) return;
+                    int selectedLocalByte = getAnchor() / 2; // 2 characters -> 1 byte
+
+                    Platform.runLater(() -> // Find next
+                            JoJoWriteController.getInstance().findAndDisplayInROM(hexStr, getAddress() + selectedLocalByte + 1)
+                    );
+                }
+        );
+        findDialog.setGraphic(null);
+        findDialogPane.setMinWidth(600.0);
 
         // Styling for Go To Dialog
-        goToDialog.setTitle("Reposition");
-        goToDialog.setHeaderText("Go to Address: ");
-        goToDialog.getDialogPane().getStyleClass().add("help-dialog");
+        final DialogPane goToDialogPane = goToDialog.getDialogPane();
+        goToDialogPane.getStyleClass().add("help-dialog");
         goToDialog.getEditor().setTextFormatter(new TextFormatter<>(JJWUtils.limitLengthOperator(8)));
         goToDialog.getEditor().getStyleClass().add("main");
+        goToDialog.setGraphic(null);
     }
 
     private boolean validateText(String text) {

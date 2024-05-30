@@ -12,6 +12,7 @@ import net.arna.jojowrite.asm.instruction.Instruction;
 import org.fxmisc.flowless.Virtualized;
 import org.fxmisc.richtext.CodeArea;
 import org.fxmisc.richtext.LineNumberFactory;
+import org.fxmisc.richtext.StyleClassedTextArea;
 import org.fxmisc.richtext.model.StyleSpan;
 import org.fxmisc.richtext.model.StyleSpans;
 
@@ -39,8 +40,8 @@ public class AssemblyArea extends CodeArea {
 
     private static final StringBuilder outputBuilder = new StringBuilder();
 
-    private final TextInputDialog findDialog = DialogHelper.createFindDialog();
-    private final TextInputDialog goToDialog = DialogHelper.createStyledTextInputDialog();
+    private final TextInputDialog findDialog = DialogHelper.createFindDialog("Find", "");
+    private final TextInputDialog goToDialog = DialogHelper.createStyledTextInputDialog("Go to", "");
 
     private static final Set<String> keywordTextStyle = Collections.singleton(KEYWORD_TEXT);
     private static final Set<String> commentTextStyle = Collections.singleton(COMMENT_TEXT);
@@ -63,7 +64,6 @@ public class AssemblyArea extends CodeArea {
                     goToDialog.getEditor().requestFocus();
                     goToDialog.showAndWait().ifPresent(this::goToLine);
                 }
-                //todo: actually good find menu (find all occurrences then let user go through them)
                 if (event.getCode() == KeyCode.F) { // Ctrl + F - Find Text
                     event.consume();
                     findDialog.getEditor().requestFocus();
@@ -127,8 +127,6 @@ public class AssemblyArea extends CodeArea {
 
     private void initDialogs() {
         // Styling for Find Hex String Dialog
-        findDialog.setTitle("Find");
-        findDialog.setHeaderText("");
         final DialogPane findDialogPane = findDialog.getDialogPane();
         findDialogPane.getStyleClass().add("help-dialog");
         final TextField findDialogEditor = findDialog.getEditor();
@@ -148,11 +146,8 @@ public class AssemblyArea extends CodeArea {
                 }
         );
         findDialog.setGraphic(null);
-        findDialogPane.setHeader(null);
 
         // Styling for Go To Dialog
-        goToDialog.setTitle("Go To");
-        goToDialog.setHeaderText("");
         final DialogPane goToDialogPane = goToDialog.getDialogPane();
         goToDialogPane.getStyleClass().add("help-dialog");
         goToDialog.getEditor().getStyleClass().add("main");
@@ -161,7 +156,6 @@ public class AssemblyArea extends CodeArea {
                 )
         );
         goToDialog.setGraphic(null);
-        goToDialogPane.setHeader(null);
     }
 
     /**
@@ -178,10 +172,7 @@ public class AssemblyArea extends CodeArea {
         // Same concept as OverwriteBox#assignParentPane()
         final double newScrollY = baseNewScrollY - paragraphHeight * (baseNewScrollY / getTotalHeightEstimate());
 
-        scrollToPixel(
-                getEstimatedScrollX(),
-                newScrollY
-        );
+        scrollToPixel(getEstimatedScrollX(), newScrollY);
         return true;
     }
 
@@ -286,7 +277,10 @@ public class AssemblyArea extends CodeArea {
         final int paraLength = paragraph.length();
         if (paraLength < 9) return;
 
-        setStyleSpans(startIndex, addressPrefixStyle);
+        // The time expense of running this check is worth not repeating the expense of setting style spans
+        if (!getStyleSpans(startIndex, startIndex + 9).equals(addressPrefixStyle)) {
+            setStyleSpans(startIndex, addressPrefixStyle);
+        }
 
         // Style keyword
         final int keywordEndIndex = paragraph.indexOf(" ", 10); // 8 address digits, ':', minimum 2 character instruction keyword, zero-based indexing
@@ -299,7 +293,7 @@ public class AssemblyArea extends CodeArea {
 
         // Style specific characters
         for (int i = keywordEndIndex; i < paraLength; i++) {
-            Collection<String> style = styleMap.get(paragraph.charAt(i));
+            Set<String> style = styleMap.get(paragraph.charAt(i));
             if (style == null) continue;
             int charIndex = startIndex + i;
             setStyle(charIndex, charIndex + 1, style);
@@ -385,7 +379,16 @@ public class AssemblyArea extends CodeArea {
                 if (i == currentParagraphIndex) break;
             }
             if (paragraphIndex == -1 || paragraphIndex >= paragraphs.length) return;
-            JoJoWriteController.getInstance().output.selectRange(paragraphIndex, 4, paragraphIndex, 0);
+
+            StyleClassedTextArea outputArea = JoJoWriteController.getInstance().output;
+            outputArea.selectRange(paragraphIndex, 4, paragraphIndex, 0);
+
+            final double paragraphHeight = outputArea.getTotalHeightEstimate() / outputArea.getText().split("\n").length;
+            final double baseNewScrollY = paragraphIndex * paragraphHeight;
+            // Same concept as OverwriteBox#assignParentPane()
+            final double newScrollY = baseNewScrollY - paragraphHeight * (baseNewScrollY / outputArea.getTotalHeightEstimate());
+            final double scrollX = outputArea.getEstimatedScrollX();
+            outputArea.scrollToPixel(scrollX, newScrollY);
         }
 
         private static boolean notAnInstruction(String s) {

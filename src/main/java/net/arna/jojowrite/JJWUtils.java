@@ -49,6 +49,20 @@ public interface JJWUtils {
         };
     }
 
+    static TextFormatter<?> hexadecimalTextFormatter() {
+        return new TextFormatter<>(c -> {
+            if (c.isContentChange()) {
+                String newText = c.getText();
+                if (isHexadecimal(newText)) {
+                    c.setText(newText);
+                } else {
+                    c.setText("");
+                }
+            }
+            return c;
+        });
+    }
+
     String HEX_DIGITS = "0123456789abcdef";
     byte[] HEX_ARRAY = HEX_DIGITS.getBytes(StandardCharsets.US_ASCII);
     static String bytesToHex(byte[] bytes) {

@@ -18,14 +18,16 @@ public class DialogHelper {
         return dialog;
     }
 
-    public static TextInputDialog createStyledTextInputDialog() {
+    public static TextInputDialog createStyledTextInputDialog(String title, String header) {
         TextInputDialog dialog = new TextInputDialog();
+        dialog.setTitle(title);
+        dialog.setHeaderText(header);
         dialog.getDialogPane().getStylesheets().add(DIALOG_STYLESHEET);
         return dialog;
     }
 
-    public static TextInputDialog createFindDialog() {
-        TextInputDialog dialog = createStyledTextInputDialog();
+    public static TextInputDialog createFindDialog(String title, String header) {
+        TextInputDialog dialog = createStyledTextInputDialog(title, header);
         dialog.initModality(Modality.NONE);
 
         DialogPane dialogPane = dialog.getDialogPane();

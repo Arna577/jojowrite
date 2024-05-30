@@ -31,10 +31,8 @@ public class OverwriteBox extends VBox {
             if (event.isControlDown() && event.getCode() == KeyCode.F) {
                 event.consume();
 
-                TextInputDialog dialog = DialogHelper.createStyledTextInputDialog();
+                TextInputDialog dialog = DialogHelper.createStyledTextInputDialog("Find Overwrite", "Overwrite Address: ");
                 DialogPane dialogPane = dialog.getDialogPane();
-                dialog.setTitle("Find Overwrite");
-                dialog.setHeaderText("Overwrite Address: ");
                 //todo: dialog.setContentText("If no full match was found, you will be taken to the first closest match."); // Via a sliding bit shift equality check
                 dialogPane.getStyleClass().add("help-dialog");
 
