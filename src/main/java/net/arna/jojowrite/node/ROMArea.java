@@ -9,6 +9,7 @@ import javafx.scene.input.KeyEvent;
 import javafx.scene.input.ScrollEvent;
 import javafx.scene.paint.Paint;
 import javafx.scene.shape.Line;
+import javafx.stage.Stage;
 import net.arna.jojowrite.DialogHelper;
 import net.arna.jojowrite.JJWUtils;
 import net.arna.jojowrite.JoJoWriteController;
@@ -26,7 +27,7 @@ public class ROMArea extends StyleClassedTextArea {
     private long address = 0x00000000;
 
     private static final int NUM_LINES = 34;
-    public static final double BYTE_WIDTH = 19.25;
+    public static final double BYTE_WIDTH = 19.25, BYTE_HEIGHT = 22.75;
     private final Line[] lines = new Line[NUM_LINES];
 
     private final TextInputDialog findDialog = DialogHelper.createFindDialog("Find Hex string", "");
@@ -105,7 +106,7 @@ public class ROMArea extends StyleClassedTextArea {
                 if (keyCode == KeyCode.F) { // Ctrl + F - Find Hex string
                     event.consume();
                     if (findDialog.isShowing()) {
-                        //todo: figure out how to focus windows that r already showing
+                        ((Stage) findDialog.getDialogPane().getScene().getWindow()).toFront();
                     } else {
                         findDialog.show();
                     }
@@ -151,9 +152,13 @@ public class ROMArea extends StyleClassedTextArea {
      * Calculates how many bytes would fit neatly into the viewport.
      * Works for lower heights but fucks up on higher ones for some reason
      */
-    private void calculateByteCapacity() {
+    public void calculateByteCapacity() {
         double x = getWidth(), y = getViewportHeight();
-        byteCapacity = (int) (x / BYTE_WIDTH) * (int) (y / 22.75);
+        int newByteCapacity = (int) (x / BYTE_WIDTH) * (int) (y / BYTE_HEIGHT);
+        // Due to minimum size limitations, this is a reasonable check
+        // Its actual purpose is to stop the ROMArea from loading 0 bytes consistently
+        if (newByteCapacity > 0)
+            byteCapacity = newByteCapacity;
     }
 
     public int getByteCapacity() {
@@ -174,7 +179,7 @@ public class ROMArea extends StyleClassedTextArea {
                     event.consume();
                     String hexStr = findDialogEditor.getText();
                     if (hexStr.isEmpty()) return;
-                    int selectedLocalByte = getAnchor() / 2; // 2 characters -> 1 byte
+                    int selectedLocalByte = Math.min(getAnchor(), getCaretPosition()) / 2; // 2 characters -> 1 byte
 
                     Platform.runLater(() -> // Find next
                             JoJoWriteController.getInstance().findAndDisplayInROM(hexStr, getAddress() + selectedLocalByte + 1)

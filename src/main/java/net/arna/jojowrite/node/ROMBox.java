@@ -59,6 +59,7 @@ public class ROMBox extends HBox {
     }
 
     public void goToZero() {
+        scrollBar.setValue(-1.0);
         scrollBar.setValue(0.0);
     }
 
@@ -84,6 +85,9 @@ public class ROMBox extends HBox {
     }
 
     public void displayROMAt(long address) throws IOException {
+        if (address < 0) {
+            return;
+        }
         if (romRAF == null) {
             System.out.println("Tried to ROMBox#displayROMAt() with null romRAF!");
             return;

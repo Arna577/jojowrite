@@ -30,7 +30,7 @@ public class JoJoWriteApplication extends Application {
         DIALOG_STYLESHEET = JoJoWriteApplication.class.getResource("dialogs.css").toExternalForm();
 
         FXMLLoader fxmlLoader = new FXMLLoader(JoJoWriteApplication.class.getResource("main-view.fxml"));
-        Scene scene = new Scene(fxmlLoader.load(), 1280, 720);
+        Scene scene = new Scene(fxmlLoader.load(), 1267, 720);
 
         scene.getStylesheets().add(STYLESHEET);
 

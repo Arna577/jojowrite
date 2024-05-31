@@ -73,7 +73,6 @@ public class JoJoWriteController implements Initializable {
 
     @FXML
     public ROMBox romBox;
-        private ROMArea romArea;
     @FXML
     public VBox romData;
         @FXML
@@ -531,6 +530,7 @@ public class JoJoWriteController implements Initializable {
 
     public void openSelectedOverwriteFile() {
         openSelectedFile(FileType.OVERWRITE);
+        romBox.goToZero();
     }
 
     public void trySaveOverwriteFile() {
@@ -671,76 +671,73 @@ public class JoJoWriteController implements Initializable {
 
             /*
              The buffer size:
-             * Must be equal to or larger than the hex strings length
+             * Must be equal to or larger than the hex strings' length
              * Must be equal to or smaller than the file length
              */
-            int bufferSize = 1024;
+            int bufferSize = 128;
 
             if (hexStrLength > bufferSize) {
                 bufferSize = hexStrLength;
+                if (bufferSize > romRAFLength) {
+                    System.out.println("Input bytes length is longer than file!");
+                    return;
+                }
             }
 
             if (bufferSize > romRAFLength) {
-                System.out.println("Input bytes length is longer than file!");
-                return;
+                bufferSize = romRAFLength;
             }
 
             romRAF.seek(offsetAddress);
+            System.out.println("Searching for: " + hexStr);
+            System.out.println("At address: " + offsetAddress);
 
+            //todo: fix search :(
+            long firstMatchAddress = -1;
+            boolean alreadyVisited = false; // Prevents an infinite loop
             byte[] readBytes = new byte[bufferSize];
             while (romRAF.read(readBytes) != -1) {
+                long alignedBufferEndPointer = romRAF.getFilePointer();
                 int matchingBytes = 0;
                 for (int i = 0; i < bufferSize; i++) {
+                    byte readByte = readBytes[i];
                     // Match sequentially
-                    if (bytes[matchingBytes] == readBytes[i]) {
+                    if (bytes[matchingBytes] == readByte) {
                         matchingBytes++;
+                        //System.out.println("Match #" + i + ": " + readByte);
                     } else {
-                        if (bytes[0] == readBytes[i]) {
+                        if (bytes[0] == readByte) {
                             // If mismatched current byte in sequence but found a match for the first byte again
                             matchingBytes = 1;
+                            //System.out.println("Semi-Mismatch #" + i + ": " + readByte + ", exp. " + bytes[0]);
                         } else {
                             // True mismatch
                             matchingBytes = 0;
+                            //System.out.println("Real Mismatch #" + i + ": " + readByte + ", exp. " + bytes[0]);
                         }
+                    }
+
+                    if (matchingBytes == 1) {
+                        final long newFirstMatchAddress = alignedBufferEndPointer - bufferSize + i;
+                        if (newFirstMatchAddress == firstMatchAddress) {
+                            alreadyVisited = true;
+                        }
+                        firstMatchAddress = newFirstMatchAddress;
                     }
 
                     if (matchingBytes == hexStrLength) { // Match found
                         showInROM((int) romRAF.getFilePointer() - bufferSize - hexStrLength + i + 1, hexStrLength * 2);
                         return;
                     }
-
-                    //todo: fix this not working
-                    if (matchingBytes > 0 && i == bufferSize - 1) { // Partial match, but reached end of buffer
-                        long alignedBufferEndPointer = romRAF.getFilePointer();
-                        romRAF.seek(alignedBufferEndPointer - matchingBytes); // Seek start of match
-                        byte[] speculativeMatch = new byte[hexStrLength];
-                        romRAF.read(speculativeMatch); // Read possibly matching bytes
-                        int mismatchIndex = Arrays.mismatch(bytes, speculativeMatch);
-                        if (mismatchIndex < 0) { // If equal, display
-                            showInROM((int) alignedBufferEndPointer - bufferSize - hexStrLength + i + 1, hexStrLength * 2);
-                            return;
-                        } else { // If not equal, continue searching...
-                            System.out.println("Bytes: ");
-                            System.out.println(Arrays.toString(bytes));
-                            System.out.println("Checked: ");
-                            System.out.println(Arrays.toString(speculativeMatch));
-                            System.out.println("Speculative mismatch at " + mismatchIndex + ", continuing...");
-                            romRAF.seek(alignedBufferEndPointer);
-                        }
+                }
+                if (matchingBytes > 0) { // Partial match, but reached end of buffer
+                    if (alreadyVisited) {
+                        System.out.println("Search loop prevented.");
+                        return;
                     }
+                    romRAF.seek(firstMatchAddress);
                 }
             }
-
-
-            /*
-            romRAF.seek(offsetAddress);
-            while (romRAF.read(readBytes) != -1) {
-                if (Arrays.equals(readBytes, bytes)) {
-                    showInROM((int) romRAF.getFilePointer() - hexStrLength, hexStrLength * 2);
-                    break;
-                }
-            }
-             */
         } catch (Exception e) {
             JJWUtils.printException(e, "Failed to find and display " + hexStr + " in ROM!");
         }
@@ -784,11 +781,13 @@ public class JoJoWriteController implements Initializable {
         dialog.setHeaderText(
                 """
                         ROM:
-                            ●   Ctrl + G - go to address
                             ●   Ctrl + F - find hex string
+                            ●   Ctrl + G - go to address
                         Overwrites:
                             ●   Ctrl + F - find Overwrite by address
-                            
+                        Assembly:
+                            ●   Ctrl + F - find hex string
+                            ●   Ctrl + G - go to address
                             """
         );
         dialog.initStyle(StageStyle.UNDECORATED);
