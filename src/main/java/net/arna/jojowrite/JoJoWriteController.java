@@ -331,6 +331,7 @@ public class JoJoWriteController implements Initializable {
                 } else if (line.endsWith(ASSEMBLY_FILE_EXTENSION)) {
                     type = FileType.ASSEMBLY;
                 } else {
+                    //todo: scream at the user for this
                     System.out.println("Wrong file type referenced in patch file; " + line);
                     continue;
                 }
@@ -554,6 +555,7 @@ public class JoJoWriteController implements Initializable {
 
     private void loadAssembly() {
         setOpenType(FileType.ASSEMBLY);
+        output.clear();
         assemblyArea.clear();
 
         try
@@ -671,13 +673,13 @@ public class JoJoWriteController implements Initializable {
 
             /*
              The buffer size:
-             * Must be equal to or larger than the hex strings' length
+             * Must be equal to or larger than 2x the hex strings' length
              * Must be equal to or smaller than the file length
              */
             int bufferSize = 128;
 
-            if (hexStrLength > bufferSize) {
-                bufferSize = hexStrLength;
+            if (hexStrLength * 4 > bufferSize) {
+                bufferSize = hexStrLength * 4;
                 if (bufferSize > romRAFLength) {
                     System.out.println("Input bytes length is longer than file!");
                     return;
@@ -692,12 +694,9 @@ public class JoJoWriteController implements Initializable {
             System.out.println("Searching for: " + hexStr);
             System.out.println("At address: " + offsetAddress);
 
-            //todo: fix search :(
-            long firstMatchAddress = -1;
-            boolean alreadyVisited = false; // Prevents an infinite loop
             byte[] readBytes = new byte[bufferSize];
             while (romRAF.read(readBytes) != -1) {
-                long alignedBufferEndPointer = romRAF.getFilePointer();
+                long pointer = romRAF.getFilePointer();
                 int matchingBytes = 0;
                 for (int i = 0; i < bufferSize; i++) {
                     byte readByte = readBytes[i];
@@ -717,25 +716,13 @@ public class JoJoWriteController implements Initializable {
                         }
                     }
 
-                    if (matchingBytes == 1) {
-                        final long newFirstMatchAddress = alignedBufferEndPointer - bufferSize + i;
-                        if (newFirstMatchAddress == firstMatchAddress) {
-                            alreadyVisited = true;
-                        }
-                        firstMatchAddress = newFirstMatchAddress;
-                    }
-
                     if (matchingBytes == hexStrLength) { // Match found
-                        showInROM((int) romRAF.getFilePointer() - bufferSize - hexStrLength + i + 1, hexStrLength * 2);
+                        showInROM((int) pointer - bufferSize - hexStrLength + i + 1, hexStrLength * 2);
                         return;
                     }
                 }
-                if (matchingBytes > 0) { // Partial match, but reached end of buffer
-                    if (alreadyVisited) {
-                        System.out.println("Search loop prevented.");
-                        return;
-                    }
-                    romRAF.seek(firstMatchAddress);
+                if (pointer != romRAFLength) { // Overlapping buffer positioning (ensure partial matches are found)
+                    romRAF.seek(pointer - hexStrLength - 1);
                 }
             }
         } catch (Exception e) {

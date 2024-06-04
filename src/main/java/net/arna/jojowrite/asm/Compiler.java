@@ -111,13 +111,13 @@ public class Compiler {
          * @param fragments the List of Fragments to link the new Part to
          * @return whether the StringBuilder ended with the format.
          */
-        public boolean findMatch(StringBuilder stringBuilder, List<Part> parts, List<Fragment> fragments) {
+        public boolean findMatch(StringBuilder stringBuilder, List<Part> parts, Fragment[] fragments) {
             if (stringBuilder.toString().endsWith(format)) {
                 stringBuilder.setLength(stringBuilder.length() - formatLength);
                 parts.add(Part.StaticPart(stringBuilder.toString()));
                 stringBuilder.setLength(0);
 
-                parts.add(Part.VariablePart(type, fragments.stream().filter(fragment ->
+                parts.add(Part.VariablePart(type, Arrays.stream(fragments).filter(fragment ->
                                 fragment.getType() == Fragment.FragmentType.VARIABLE && // 'd' might be 0x0D or disp
                                         fragment.asSingleChar().equals(identifier)
                                 ).toList()));
@@ -152,17 +152,7 @@ public class Compiler {
 
                 // Example: MOV #imm,Rn 1110nnnniiiiiiii imm → Sign extension → Rn 1 —
                 String fragmentsStr = splitDef[2]; // Example: "1110nnnniiiiiiii"
-                List<Fragment> fragments = new ArrayList<>();
-                for (int i = 0; i < 16; i += 4) {
-                    String fragmentStr = fragmentsStr.substring(i, i + 4);
-                    try { // Valid binary fragment
-                        byte fragmentValue = Integer.valueOf(fragmentStr, 2).byteValue();
-                        fragments.add(Fragment.StaticFragment(fragmentValue));
-                    } catch (NumberFormatException e) { // Parameterized fragment
-                        char identifier = fragmentStr.charAt(0);
-                        fragments.add(Fragment.VariableFragment(identifier));
-                    }
-                }
+                Fragment[] fragments = splitIntoFragments(fragmentsStr);
                 //fragments.forEach(System.out::println);
 
                 String parameterStr = splitDef[1]; // Example: "#imm,Rn"
@@ -194,17 +184,32 @@ public class Compiler {
                 }
 
                 Format format = new Format(parts);
+                // Apply correct displacement mutation
                 if (splitDef[0].endsWith(".W") || parts.stream().anyMatch(part -> part.getArgumentType() == Part.ArgumentType.LABEL))
                     format.setDispMutation(DisplacementMutation.WORD);
                 if (splitDef[0].endsWith(".L"))
                     format.setDispMutation(DisplacementMutation.LONG);
 
-                Instruction newInstruction = new Instruction(fragments, format);
-                registerInstruction(newInstruction);
+                registerInstruction(new Instruction(fragments, format));
                 //System.out.println(newInstruction);
             }
         } catch (Exception e) {
             JJWUtils.printException(e, "Something went wrong while reading asmdef.txt!");
         }
+    }
+
+    private static Fragment[] splitIntoFragments(String fragmentsStr) {
+        Fragment[] fragments = new Fragment[4];
+        for (int i = 0; i < 16; i += 4) {
+            String fragmentStr = fragmentsStr.substring(i, i + 4);
+            try { // Valid binary fragment
+                byte fragmentValue = Integer.valueOf(fragmentStr, 2).byteValue();
+                fragments[i / 4] = (Fragment.StaticFragment(fragmentValue));
+            } catch (NumberFormatException e) { // Parameterized fragment
+                char identifier = fragmentStr.charAt(0);
+                fragments[i / 4] = (Fragment.VariableFragment(identifier));
+            }
+        }
+        return fragments;
     }
 }

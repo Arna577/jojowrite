@@ -3,9 +3,9 @@ package net.arna.jojowrite.node;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.scene.control.*;
-import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import net.arna.jojowrite.DialogHelper;
+import net.arna.jojowrite.JJWUtils;
 import net.arna.jojowrite.JoJoWriteController;
 import net.arna.jojowrite.asm.Compiler;
 import net.arna.jojowrite.asm.instruction.Instruction;
@@ -59,15 +59,21 @@ public class AssemblyArea extends CodeArea {
 
         addEventFilter(KeyEvent.KEY_PRESSED, event -> {
             if (event.isControlDown()) {
-                if (event.getCode() == KeyCode.G) { // Ctrl + G - Go to Line
-                    event.consume();
-                    goToDialog.getEditor().requestFocus();
-                    goToDialog.showAndWait().ifPresent(this::goToLine);
-                }
-                if (event.getCode() == KeyCode.F) { // Ctrl + F - Find Text
-                    event.consume();
-                    findDialog.getEditor().requestFocus();
-                    findDialog.show();
+                switch (event.getCode()) {
+                    case F -> { // Ctrl + F - Find Text
+                        event.consume();
+                        findDialog.getEditor().requestFocus();
+                        findDialog.show();
+                    }
+                    case G -> {// Ctrl + G - Go to Line
+                        event.consume();
+                        goToDialog.getEditor().requestFocus();
+                        goToDialog.showAndWait().ifPresent(this::goToLine);
+                    }
+                    case S -> { // Ctrl + S - Save
+                        event.consume();
+                        JoJoWriteController.getInstance().saveFile(JJWUtils.FileType.ASSEMBLY);
+                    }
                 }
             }
         });

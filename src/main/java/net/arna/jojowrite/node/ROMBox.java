@@ -59,6 +59,7 @@ public class ROMBox extends HBox {
     }
 
     public void goToZero() {
+        //todo: stupid fucking hack replace please
         scrollBar.setValue(-1.0);
         scrollBar.setValue(0.0);
     }

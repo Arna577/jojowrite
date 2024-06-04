@@ -91,7 +91,7 @@ public class Overwrite extends VBox {
         else overwrites.add(this);
     }
 
-    void load() {
+    private void load() {
         if (loaded) throw new IllegalStateException("Tried to load Overwrite more than once!");
         if (overwrites == null) throw new IllegalStateException("Tried to load Overwrite without an assigned OverwriteBox!");
         HBox overwriteAndOptions = new HBox();

@@ -8,16 +8,16 @@ import java.util.*;
  * Compiles into 2 bytes (via {@link Instruction#compileToHexString(Map)}).
  */
 public final class Instruction {
-    private final List<Fragment> fragments;
+    private final Fragment[] fragments;
     private final Format format;
     private final String comment;
     private final int fragSize;
 
-    public Instruction(List<Fragment> fragments, Format format, String comment) {
+    public Instruction(Fragment[] fragments, Format format, String comment) {
         if (fragments == null) {
             fragSize = 0;
         } else {
-            fragSize = fragments.size();
+            fragSize = fragments.length;
 
             if (fragSize != 4)
                 throw new RuntimeException("Attempted to create an Instruction with an invalid amount of fragments!");
@@ -28,12 +28,12 @@ public final class Instruction {
         this.comment = comment;
     }
 
-    public Instruction(List<Fragment> fragments, Format format) {
+    public Instruction(Fragment[] fragments, Format format) {
         this(fragments, format, null);
     }
 
     public boolean hasVariants() {
-        return fragments.stream().anyMatch(fragment -> fragment.getType() == Fragment.FragmentType.VARIABLE);
+        return Arrays.stream(fragments).anyMatch(fragment -> fragment.getType() == Fragment.FragmentType.VARIABLE);
     }
 
     @Override
@@ -82,7 +82,7 @@ public final class Instruction {
                     Map.entry('c', (byte)0xc),
                     Map.entry('d', (byte)0xd),
                     Map.entry('e', (byte)0xe),
-                    Map.entry('f', (byte)0Xf)
+                    Map.entry('f', (byte)0xf)
             )
     );
     public byte[] compileToBytes(Map<Fragment, Character> fragmentData) {
@@ -90,7 +90,7 @@ public final class Instruction {
         byte[] outRaw = new byte[fragSize];
 
         for (int i = 0; i < fragSize; i++) {
-            Fragment fragment = fragments.get(i);
+            Fragment fragment = fragments[i];
             if (fragment.getType() == Fragment.FragmentType.STATIC) {
                 outRaw[i] = fragment.getValue();
             } else if (fragment.getType() == Fragment.FragmentType.VARIABLE) {

@@ -12,6 +12,7 @@ import javafx.scene.shape.Line;
 import javafx.stage.Stage;
 import net.arna.jojowrite.DialogHelper;
 import net.arna.jojowrite.JJWUtils;
+import net.arna.jojowrite.JoJoWriteApplication;
 import net.arna.jojowrite.JoJoWriteController;
 import org.fxmisc.richtext.StyleClassedTextArea;
 import org.fxmisc.richtext.util.UndoUtils;
@@ -91,24 +92,30 @@ public class ROMArea extends StyleClassedTextArea {
             }
 
             if (event.isControlDown()) {
-                if (keyCode == KeyCode.G) { // Ctrl + G - Go to Address
-                    event.consume();
-                    goToDialog.showAndWait().ifPresent(addressStr -> {
-                        if (addressStr.isEmpty()) return;
-                        try {
-                            int address = Integer.parseUnsignedInt(addressStr, 16);
-                            scrollBar.setValue(address);
-                            selectRange(0, 0);
-                        } catch (Exception ignored) {
+                switch (keyCode) {
+                    case F -> {
+                        event.consume();
+                        if (findDialog.isShowing()) {
+                            ((Stage) findDialog.getDialogPane().getScene().getWindow()).toFront();
+                        } else {
+                            findDialog.show();
                         }
-                    });
-                }
-                if (keyCode == KeyCode.F) { // Ctrl + F - Find Hex string
-                    event.consume();
-                    if (findDialog.isShowing()) {
-                        ((Stage) findDialog.getDialogPane().getScene().getWindow()).toFront();
-                    } else {
-                        findDialog.show();
+                    }
+                    case G -> {
+                        event.consume();
+                        goToDialog.showAndWait().ifPresent(addressStr -> {
+                            if (addressStr.isEmpty()) return;
+                            try {
+                                int address = Integer.parseUnsignedInt(addressStr, 16);
+                                scrollBar.setValue(address);
+                                selectRange(0, 0);
+                            } catch (Exception ignored) {
+                            }
+                        });
+                    }
+                    case S -> {
+                        event.consume();
+                        JoJoWriteApplication.saveFile(JJWUtils.FileType.ROM);
                     }
                 }
             }
