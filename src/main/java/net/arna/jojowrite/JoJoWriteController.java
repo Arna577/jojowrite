@@ -387,7 +387,7 @@ public class JoJoWriteController implements Initializable {
                         BufferedReader bufferedReader = new BufferedReader(reader);
                         String line;
                         while ( (line = bufferedReader.readLine()) != null) {
-                            if (line.isEmpty() || line.startsWith(AssemblyArea.commentPrefix)) continue;
+                            if (line.isEmpty() || line.startsWith(AssemblyArea.COMMENT_PREFIX)) continue;
                             String[] addressInstruction = line.split(":"); // Address:Instruction
 
                             String addressStr = addressInstruction[0];
@@ -770,11 +770,13 @@ public class JoJoWriteController implements Initializable {
                         ROM:
                             ●   Ctrl + F - find hex string
                             ●   Ctrl + G - go to address
+                            ●   Ctrl + L - copy to clipboard as LUA
                         Overwrites:
                             ●   Ctrl + F - find Overwrite by address
                         Assembly:
                             ●   Ctrl + F - find hex string
                             ●   Ctrl + G - go to address
+                            ●   Ctrl + L - copy to clipboard as LUA
                             """
         );
         dialog.initStyle(StageStyle.UNDECORATED);

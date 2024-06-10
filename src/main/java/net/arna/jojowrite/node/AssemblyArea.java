@@ -3,6 +3,8 @@ package net.arna.jojowrite.node;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.scene.control.*;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.KeyEvent;
 import net.arna.jojowrite.DialogHelper;
 import net.arna.jojowrite.JJWUtils;
@@ -46,7 +48,7 @@ public class AssemblyArea extends CodeArea {
     private static final Set<String> keywordTextStyle = Collections.singleton(KEYWORD_TEXT);
     private static final Set<String> commentTextStyle = Collections.singleton(COMMENT_TEXT);
 
-    public static final String commentPrefix = "/";
+    public static final String COMMENT_PREFIX = "/";
 
     public AssemblyArea() {
         setTextInsertionStyle(Collections.singleton(PARAMETER_TEXT));
@@ -65,10 +67,40 @@ public class AssemblyArea extends CodeArea {
                         findDialog.getEditor().requestFocus();
                         findDialog.show();
                     }
-                    case G -> {// Ctrl + G - Go to Line
+                    case G -> { // Ctrl + G - Go to Line
                         event.consume();
                         goToDialog.getEditor().requestFocus();
                         goToDialog.showAndWait().ifPresent(this::goToLine);
+                    }
+                    case L -> { // Ctrl + L - Copy as LUA
+                        final Clipboard clipboard = Clipboard.getSystemClipboard();
+                        ClipboardContent content = new ClipboardContent();
+
+                        final int commentPrefixLength = COMMENT_PREFIX.length();
+
+                        outputBuilder.setLength(0);
+
+                        String[] split = getText().split("\n");
+                        for (int i = 0; i < split.length; i++) {
+                            String paragraph = split[i];
+                            if (!paragraph.isEmpty()) {
+                                if (paragraph.startsWith(COMMENT_PREFIX)) {
+                                    outputBuilder.append("--").append(paragraph.substring(commentPrefixLength)).append('\n');
+                                } else {
+                                    outputBuilder.append("memory.writeword(");
+                                    boolean success = processAssemblyParagraph(i, paragraph);
+                                    if (!success) {
+                                        outputBuilder.setLength(outputBuilder.length() - 1);
+                                        outputBuilder.append("-- UNRECOGNIZED INSTRUCTION!").append('\n');
+                                    } else {
+                                        outputBuilder.append(")\n");
+                                    }
+                                }
+                            }
+                        }
+
+                        content.putString(outputBuilder.toString());
+                        clipboard.setContent(content);
                     }
                     case S -> { // Ctrl + S - Save
                         event.consume();
@@ -202,7 +234,7 @@ public class AssemblyArea extends CodeArea {
                 int paraLength = paragraph.length();
 
                 if (firstVisibleParagraphIndex <= i && i <= lastVisibleParagraphIndex) { // Visible
-                    if (paragraph.startsWith(commentPrefix)) { // Comments
+                    if (paragraph.startsWith(COMMENT_PREFIX)) { // Comments
                         setStyle(startIndex, startIndex + paraLength, commentTextStyle);
                     } else { // Assembly
                         styleAssemblyParagraph(startIndex, paragraph);
@@ -250,13 +282,15 @@ public class AssemblyArea extends CodeArea {
                 // +/- paraLength serves as a buffer to ensure the paragraph was caught in the range.
                 boolean modified = lastModifiedCharacter >= startIndex - paraLength && firstModifiedCharacter <= startIndex + paraLength;
 
-                if (paragraph.startsWith(commentPrefix)) { // Comments
+                if (paragraph.startsWith(COMMENT_PREFIX)) { // Comments
                     if (visible) setStyle(startIndex, startIndex + paraLength, commentTextStyle);
                 } else { // Assembly
                     Compiler.openErrorLog(i);
                     boolean success = processAssemblyParagraph(i, paragraph);
-                    if ( (visible || modified) && success )
-                        styleAssemblyParagraph(startIndex, paragraph);
+                    if (success) {
+                        outputBuilder.append('\n');
+                        if (visible || modified) styleAssemblyParagraph(startIndex, paragraph);
+                    }
                 }
 
                 startIndex += paraLength + 1; // Account for omitted \n
@@ -309,7 +343,7 @@ public class AssemblyArea extends CodeArea {
 
     /**
      * Gets all possible instructions for this paragraph.
-     * If there is only one, it is compiled and put in the {@link JoJoWriteController#output}
+     * If there is only one, it is compiled and put in the {@link AssemblyArea#outputBuilder} in the format of 0xADDRESS, 0xBYTECODE
      * @return Whether the paragraph contains enough data to try to compile.
      */
     private boolean processAssemblyParagraph(int lineIndex, String paragraph) {
@@ -339,7 +373,7 @@ public class AssemblyArea extends CodeArea {
             if (Compiler.noLoggedErrors()) Compiler.raiseError("Unrecognized instruction: " + instructionStr);
         } else if (possible.size() == 1) {
             Compiler.clearErrors(lineIndex);
-            outputBuilder.append(Compiler.compileToHexString(possible.get(0), addressStr, instructionStr)).append('\n');
+            outputBuilder.append("0x").append(addressStr).append(", 0x").append(Compiler.compileToHexString(possible.get(0), addressStr, instructionStr));
             /*
             outputBuilder.append( // Testing whether bytecode matches direct hex string compilation
                     JJWUtils.bytesToHex(Compiler.compileToBytes(possible.get(0), addressStr, instructionStr))
@@ -398,7 +432,7 @@ public class AssemblyArea extends CodeArea {
         }
 
         private static boolean notAnInstruction(String s) {
-            return s.isEmpty() || s.startsWith(commentPrefix);
+            return s.isEmpty() || s.startsWith(COMMENT_PREFIX);
         }
 
         /**

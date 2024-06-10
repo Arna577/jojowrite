@@ -97,7 +97,7 @@
     </center>
 
     <right>
-        <StackPane minWidth="160">
+        <StackPane minWidth="180">
             <VirtualizedScrollPane fx:id="outputScrollPane" styleClass="scroll-pane">
                 <content>
                     <StyleClassedTextArea fx:id="output" editable="false" styleClass="code-area" />
