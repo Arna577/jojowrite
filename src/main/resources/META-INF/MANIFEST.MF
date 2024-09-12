@@ -1,0 +1,6 @@
+Manifest-Version: 1.0
+Main-Class: net.arna.jojowrite.Launcher
+Class-Path: --module-path C:/Program Files (x86)/Java/javafx-sdk-17.0.11
+ ;C:/Program Files (x86)/Java/javafx-sdk-17.0.11/lib --add-modules javaf
+ x.graphics --add-modules javafx.controls --add-modules javafx.base
+

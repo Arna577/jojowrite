@@ -29,12 +29,12 @@ tasks.withType(JavaCompile) {
 
 application {
     mainModule = 'net.arna.jojowrite'
-    mainClass = 'net.arna.jojowrite.HelloApplication'
+    mainClass = 'net.arna.jojowrite.Launcher'
 }
 
 javafx {
     version = '17.0.2'
-    modules = ['javafx.controls', 'javafx.fxml']
+    modules = ['javafx.base', 'javafx.graphics', 'javafx.controls', 'javafx.fxml']
 }
 
 dependencies {
@@ -62,3 +62,15 @@ jlink {
 jlinkZip {
     group = 'distribution'
 }
+
+jar {
+    manifest {
+        attributes 'Main-Class': 'net.arna.jojowrite.Launcher'
+    }
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+    duplicatesStrategy = DuplicatesStrategy.WARN
+}
+
+mainClassName = 'net.arna.jojowrite.Launcher'

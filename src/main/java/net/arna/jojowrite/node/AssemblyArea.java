@@ -22,6 +22,10 @@ import java.util.*;
 
 import static net.arna.jojowrite.TextStyles.*;
 
+//todo: ctrl + up arrow and down arrow shift the selected code by one address
+//todo: hotkey to check if all addresses in selected area are ascending and don't have skips
+//todo: custom Instruction which just spits out the word written after -- "06280000:> 1FFD" -> 0x1ffd
+
 /**
  * A {@link CodeArea} specialized for x16 RISC Assembly.
  */
