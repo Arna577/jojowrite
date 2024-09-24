@@ -277,6 +277,11 @@ public class JoJoWriteController implements Initializable {
                 } else if (line.endsWith(ASSEMBLY_FILE_EXTENSION)) {
                     files.put(FileType.ASSEMBLY, new File(line));
                 } else {
+                    File newOutROM = new File(line);
+                    if (newOutROM.canWrite() && newOutROM.length() == romRAF.length()) {
+                        outROM = newOutROM;
+                        System.out.println("Output ROM file found in patch file, setting to: " + line);
+                    }
                     System.out.println("Wrong file type referenced in patch file; " + line);
                 }
             }
@@ -296,15 +301,19 @@ public class JoJoWriteController implements Initializable {
             return;
         }
 
-        patchArea.appendText(rom.getPath() + '\n');
+        StringBuilder patchPaths = new StringBuilder();
 
+        patchPaths.append(rom.getPath()).append('\n');
         files.forEach(
                 (type, file) -> {
                     if (type != FileType.PATCH && type != FileType.ROM) {
-                        patchArea.appendText(file.getPath() + '\n');
+                        patchPaths.append(file.getPath()).append('\n');
                     }
                 }
         );
+        patchPaths.append(outROM.getPath()).append('\n');
+
+        patchArea.appendText(patchPaths.toString());
     }
 
     public void patchROM() {
@@ -377,6 +386,13 @@ public class JoJoWriteController implements Initializable {
             JJWUtils.printException(e, "An error occurred while copying source to destination ROM.");
         }
 
+        try {
+            if (sourceRomRAF.length() != outRomRAF.length())
+                throw new IllegalStateException("Source and destination ROM lengths do not match!");
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
         for (Map.Entry<File, FileType> fileEntry : toProcess.entrySet()) {
             File toApply = fileEntry.getKey();
             FileType fileType = fileEntry.getValue();
@@ -389,6 +405,11 @@ public class JoJoWriteController implements Initializable {
                         while ( (line = bufferedReader.readLine()) != null) {
                             if (line.isEmpty() || line.startsWith(AssemblyArea.COMMENT_PREFIX)) continue;
                             String[] addressInstruction = line.split(":"); // Address:Instruction
+                            if (addressInstruction.length < 2) {
+                                //todo: yell at the user
+                                System.out.println("Address with no instruction; " + addressInstruction[0]);
+                                continue;
+                            }
 
                             String addressStr = addressInstruction[0];
                             String instructionStr = addressInstruction[1];
@@ -396,10 +417,11 @@ public class JoJoWriteController implements Initializable {
                             possible.findFirst().ifPresentOrElse(
                                     instruction -> {
                                         try {
-                                            outRomRAF.seek(Integer.parseUnsignedInt(addressStr, 16));
+                                            outRomRAF.seek(Integer.parseUnsignedInt(addressStr.substring(2), 16)); // Removing the "06"
                                             outRomRAF.write(Compiler.compileToBytes(instruction, addressStr, instructionStr));
+                                            //System.out.println("Applying ASM: " + addressStr + ":" + instructionStr);
                                         } catch (Exception e) {
-                                            JJWUtils.printException(e, "Error applying Assembly machine code to ROM!");
+                                            JJWUtils.printException(e, "Error applying machine code to ROM!");
                                         }
                                     },
                                     () -> {

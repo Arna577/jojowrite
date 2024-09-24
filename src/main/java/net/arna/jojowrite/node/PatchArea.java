@@ -18,6 +18,10 @@ public class PatchArea extends StyleClassedTextArea {
         setOnKeyTyped(event -> update());
     }
 
+    private static boolean notROMPath(String string) {
+        return string.endsWith(JJWUtils.ASSEMBLY_FILE_EXTENSION) || string.endsWith(JJWUtils.OVERWRITE_FILE_EXTENSION);
+    }
+
     public void update() {
         String[] paragraphs = getText().split("\n");
 
@@ -29,11 +33,11 @@ public class PatchArea extends StyleClassedTextArea {
             boolean validFile = new File(paragraph).isFile();
 
             if (validFile) {
-                if (i == 0) { // Highlight ROM
+                if (i == 0 || (i == paragraphs.length - 1 && !notROMPath(paragraph))) { // Highlight ROM
                     setStyleClass(character, character + length, ADDRESS_TEXT);
                 } else {
                     setStyleClass(character, character + length,
-                            paragraph.endsWith(JJWUtils.ASSEMBLY_FILE_EXTENSION) || paragraph.endsWith(JJWUtils.OVERWRITE_FILE_EXTENSION) ?
+                            notROMPath(paragraph) ?
                                     TEMP_OVERWRITE_TEXT : OVERWRITTEN_TEXT);
                 }
             } else {
